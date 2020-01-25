@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import './wasm_exec.js';
+import { stdfiles } from './stdfiles.js';
 
 (() => {
     const statModes = {
@@ -100,10 +101,23 @@ import './wasm_exec.js';
             this.files_.set('/root/go', {
                 directory: true,
             });
-            // GOROOT
-            this.files_.set('/go', {
+
+            const goroot = '/go'
+            this.files_.set(goroot, {
                 directory: true,
             });
+
+            // stdlib files
+            // TODO: Load them lazily
+            const encoder = new TextEncoder();
+            for (const filename of Object.keys(stdfiles)) {
+                const fullfn = goroot + '/src/' + filename;
+                const dir = fullfn.substring(0, fullfn.lastIndexOf('/'));
+                this.mkdirp_(dir);
+                this.files_.set(fullfn, {
+                    content: encoder.encode(atob(stdfiles[filename])),
+                });
+            }
         }
 
         get constants() {
@@ -119,7 +133,7 @@ import './wasm_exec.js';
 
         writeSync(fd, buf) {
             if (fd === 1) {
-                this.stdout_ += new TextDecoder("utf-8").decode(buf);
+                this.stdout_ += new TextDecoder('utf-8').decode(buf);
                 for (;;) {
                     const n = this.stdout_.indexOf('\n');
                     if (n < 0) {
@@ -131,7 +145,7 @@ import './wasm_exec.js';
                 return buf.length;
             }
             if (fd === 2) {
-                this.stderr_ += new TextDecoder("utf-8").decode(buf);
+                this.stderr_ += new TextDecoder('utf-8').decode(buf);
                 for (;;) {
                     const n = this.stderr_.indexOf('\n');
                     if (n < 0) {
@@ -220,7 +234,7 @@ import './wasm_exec.js';
         }
 
 	link(path, link, callback) {
-            callback(null);
+            callback(enosys());
         }
 
 	lstat(path, callback) {
@@ -346,7 +360,7 @@ import './wasm_exec.js';
         }
 
 	utimes(path, atime, mtime, callback) {
-            callback(null);
+            callback(enosys());
         }
 
         stat_(path, callback) {
@@ -380,7 +394,7 @@ import './wasm_exec.js';
             });
         }
 
-        addWorkingDirectory(dir, files) {
+        mkdirp_(dir) {
             for (const path of dirs(dir)) {
                 const file = this.files_.get(path);
                 if (file) {
@@ -395,8 +409,12 @@ import './wasm_exec.js';
                     directory: true,
                 });
             }
+        }
+
+        addWorkingDirectory_(dir, files) {
+            this.mkdirp_(dir)
             // TODO: Consider the case when the files include directories.
-            for (const filename in files) {
+            for (const filename of Object.keys(files)) {
                 const path = dir + '/' + filename;
                 this.files_.set(path, {
                     content:   files[filename],
@@ -405,7 +423,7 @@ import './wasm_exec.js';
             }
         }
 
-        removeWorkingDirectory(dir) {
+        removeWorkingDirectory_(dir) {
             // TODO: Implement this
         }
     }
@@ -461,7 +479,7 @@ export function execGo(argv, files) {
 
         // TODO: Detect collision.
         const wd = '/tmp/wd-' + randomToken();
-        window.fs.addWorkingDirectory(wd, files);
+        window.fs.addWorkingDirectory_(wd, files);
         window.process.chdir(wd);
 
         // Note: go1.14beta1.wasm is created by this command:
@@ -480,7 +498,7 @@ export function execGo(argv, files) {
             };
             go.run(result.instance);
         }).catch(reject).finally(() => {
-            window.fs.removeWorkingDirectory(wd);
+            window.fs.removeWorkingDirectory_(wd);
         });
     })
 }

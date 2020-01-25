@@ -12,6 +12,8 @@ window.addEventListener('message', (e) => {
     }).then(code => {
         if (code !== 0) {
             console.warn('exit code:', code);
+        } else {
+            console.log('exit code:', code);
         }
     }).catch(e => {
         console.error(e);
