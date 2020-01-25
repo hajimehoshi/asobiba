@@ -380,7 +380,7 @@ import './wasm_exec.js';
     window.process = process;
 })();
 
-export function execGo(argv) {
+export function execGo(argv, source) {
     return new Promise((resolve, reject) => {
         // Polyfill
         let instantiateStreaming = WebAssembly.instantiateStreaming;
