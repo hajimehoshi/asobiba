@@ -173,15 +173,15 @@ import './wasm_exec.js';
 
             const fd = this.nextFd_;
             this.nextFd_++;
-            this.fds_[fd] = {
+            this.fds_.set(fd, {
                 path:   path,
                 offset: 0,
-            }
+            });
             callback(null, fd);
         }
 
 	read(fd, buffer, offset, length, position, callback) {
-            const handle = this.fds_[fd];
+            const handle = this.fds_.get(fd);
             if (position !== null) {
                 handle.offset = position;
             }
