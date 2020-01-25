@@ -377,6 +377,8 @@ import { stdfiles } from './stdfiles.js';
             const file = this.files_.get(path);
             if (file.directory) {
                 mode |= statModes.S_IFDIR;
+            } else {
+                mode |= statModes.S_IFREG;
             }
             callback(null, {
                 mode:    mode,
