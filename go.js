@@ -25,7 +25,11 @@ import './wasm_exec.js';
         if (wd[wd.length-1] !== '/') {
             wd += '/';
         }
-        return wd + tokens.join('/');
+        path = wd + tokens.join('/');
+        if (path[path.length-1] === '/' && path !== '/') {
+            path = path.substring(0, path.length-1);
+        }
+        return path;
     }
 
     class FS {
@@ -34,6 +38,10 @@ import './wasm_exec.js';
             this.fds_ = new Map();
             this.ps_ = ps;
             this.nextFd_ = 1000;
+
+            this.files_.set(this.ps_.cwd(), {
+                directory: true,
+            });
         }
 
         get constants() {
@@ -57,25 +65,25 @@ import './wasm_exec.js';
                 return buf.length;
             }
 
-            const handle = this.fds_[fd];
-            const file = this.files_[file.path];
+            const handle = this.fds_.get(fd);
+            const content = this.files_.get(handle.path).content;
             let finalLength = handle.offset + buf.length;
 
             // Extend the size if necessary
-            let n = file.buffer.length;
+            let n = content.buffer.length;
             while (n < finalLength) {
                 n *= 2;
             }
-            if (file.buffer.length !== n) {
-                file = new Uint8Array(new ArrayBuffer(n), 0, finalLength).set(file);
+            if (content.buffer.length !== n) {
+                content = new Uint8Array(new ArrayBuffer(n), 0, finalLength).set(content);
             } else {
-                file = new Uint8Array(file.buffer, 0, finalLength);
+                content = new Uint8Array(content.buffer, 0, finalLength);
             }
 
-            file.set(buf, handle.offset)
+            content.set(buf, handle.offset)
 
             handle.offset += buf.length;
-            this.files_[file.path] = file;
+            this.files_.get(handle.path).content = content;
 
             return buf.length;
         }
@@ -112,7 +120,7 @@ import './wasm_exec.js';
         }
 
 	fstat(fd, callback) {
-            this.stat_(absPath(this.ps_.cwd(), this.fds_[fd].path), callback);
+            this.stat_(path, callback);
         }
 
 	fsync(fd, callback) {
@@ -133,7 +141,7 @@ import './wasm_exec.js';
         }
 
 	lstat(path, callback) {
-            this.stat_(absPath(this.ps_.cwd(), path), callback);
+            this.stat_(path, callback);
         }
 
 	mkdir(path, perm, callback) {
@@ -150,10 +158,17 @@ import './wasm_exec.js';
                     callback(err);
                     return;
                 }
-                this.files_[path] = new Uint8Array(0);
+                this.files_.set(path, {
+                    content:   new Uint8Array(0),
+                    directory: false,
+                });
             }
+            // TODO: Abort is path is a directory.
             if (flags & constants.O_TRUNC) {
-                this.files_[path] = new Uint8Array(0);
+                this.files_.set(path, {
+                    content:   new Uint8Array(0),
+                    directory: false,
+                });
             }
 
             const fd = this.nextFd_;
@@ -171,17 +186,17 @@ import './wasm_exec.js';
                 handle.offset = position;
             }
 
-            const file = this.files_[handle.path];
+            const content = this.files_.get(handle.path).content;
             let n = length;
-            if (handle.offset + length > file.length) {
-                n = file.length - handle.offset;
+            if (handle.offset + length > content.length) {
+                n = content.length - handle.offset;
             }
             if (n < buffer.length - offset) {
                 n = buffer.length - offset
             }
 
             for (let i = 0; i < n; i++) {
-                buffer[offset+i] = file[handle.offset+i];
+                buffer[offset+i] = content[handle.offset+i];
             }
 
             handle.offset += n;
@@ -207,7 +222,7 @@ import './wasm_exec.js';
         }
 
 	stat(path, callback) {
-            this.stat_(absPath(this.ps_.cwd(), path), callback);
+            this.stat_(path, callback);
         }
 
 	symlink(path, link, callback) {
@@ -230,14 +245,17 @@ import './wasm_exec.js';
         }
 
         stat_(path, callback) {
-            let mode = 0;
-            if (path === '/') {
-                mode |= 0x80000000;
-            } else if (!this.files_.has(path)) {
+            path = absPath(this.ps_.cwd(), path);
+            if (!this.files_.has(path)) {
                 const err = new Error('no such file');
                 err.code = 'ENOENT';
                 callback(err);
                 return;
+            }
+            let mode = 0;
+            const file = this.files_.get(path);
+            if (file.directory) {
+                mode |= 0x80000000;
             }
             callback(null, {
                 mode:    mode,
