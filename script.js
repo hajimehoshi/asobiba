@@ -55,7 +55,7 @@ body {
 
         // TODO: Parse src as a Go file and execute this.
 
-        execGo(["help"]).then(code => {
+        execGo(["env"]).then(code => {
             console.warn("exit code:", code);
         }).catch(e => {
             console.error(e);

@@ -68,6 +68,10 @@ import './wasm_exec.js';
             this.files_.set(this.ps_.cwd(), {
                 directory: true,
             });
+            this.files_.set('/tmp', {
+                directory: true,
+            });
+            // Temporary hack to enable 'go env'.
             this.files_.set('/go', {
                 directory: true,
             });
@@ -174,15 +178,44 @@ import './wasm_exec.js';
         }
 
 	mkdir(path, perm, callback) {
-            // TODO: Implement this?
-            callback(enosys());
+            path = absPath(this.ps_.cwd(), path);
+            let current = '';
+            const tokens = path.split('/');
+            for (let i = 0; i < tokens.length; i++) {
+                const token = tokens[i];
+                if (current[current.length - 1] === '/') {
+                    current += token;
+                } else {
+                    current += '/' + token;
+                }
+                const file = this.files_.get(current);
+                if (!file) {
+                    if (i !== tokens.length - 1) {
+                        const err = new Error('file exists');
+                        err.code = 'EEXIST';
+                        callback(err);
+                        return;
+                    }
+                    break;
+                }
+                if (!file.directory) {
+                    const err = new Error('file exists');
+                    err.code = 'EEXIST';
+                    callback(err);
+                    return;
+                }
+            }
+            this.files_.set(path, {
+                directory: true,
+            });
+            callback(null);
         }
 
 	open(path, flags, mode, callback) {
             path = absPath(this.ps_.cwd(), path);
             if (!this.files_.has(path)) {
                 if (!(flag & this.constants.O_CREAT)) {
-                    const err = new Error('no such file');
+                    const err = new Error('no such file or directory');
                     err.code = 'ENOENT';
                     callback(err);
                     return;
@@ -276,7 +309,7 @@ import './wasm_exec.js';
         stat_(path, callback) {
             path = absPath(this.ps_.cwd(), path);
             if (!this.files_.has(path)) {
-                const err = new Error('no such file');
+                const err = new Error('no such file or directory');
                 err.code = 'ENOENT';
                 callback(err);
                 return;
