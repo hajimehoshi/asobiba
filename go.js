@@ -78,8 +78,15 @@ import './wasm_exec.js';
             this.files_.set('/root', {
                 directory: true,
             });
-            // GOROOT
+            // GOPATH
             this.files_.set('/root/go', {
+                directory: true,
+            });
+            this.files_.set('/usr', {
+                directory: true,
+            });
+            // GOROOT
+            this.files_.set('/usr/go', {
                 directory: true,
             });
         }
@@ -190,11 +197,10 @@ import './wasm_exec.js';
             const tokens = path.split('/');
             for (let i = 0; i < tokens.length; i++) {
                 const token = tokens[i];
-                if (current[current.length - 1] === '/') {
-                    current += token;
-                } else {
-                    current += '/' + token;
+                if (current !== '/') {
+                    current += '/';
                 }
+                current += token;
                 const file = this.files_.get(current);
                 if (!file) {
                     if (i !== tokens.length - 1) {
@@ -395,6 +401,7 @@ export function execGo(argv) {
             go.env = {
                 TMPDIR: '/tmp',
                 HOME:   '/root',
+                GOROOT: '/usr/go',
             };
             go.run(result.instance);
         }).catch(reject);
