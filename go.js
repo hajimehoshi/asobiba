@@ -100,11 +100,8 @@ import './wasm_exec.js';
             this.files_.set('/root/go', {
                 directory: true,
             });
-            this.files_.set('/usr', {
-                directory: true,
-            });
             // GOROOT
-            this.files_.set('/usr/go', {
+            this.files_.set('/go', {
                 directory: true,
             });
         }
@@ -478,7 +475,7 @@ export function execGo(argv, files) {
             go.env = {
                 TMPDIR:      '/tmp',
                 HOME:        '/root',
-                GOROOT:      '/usr/go',
+                GOROOT:      '/go',
                 GO111MODULE: 'on',
             };
             go.run(result.instance);
