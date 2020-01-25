@@ -37,6 +37,10 @@ import './wasm_exec.js';
     }
 
     function absPath(cwd, path) {
+        if (path[0] === '/') {
+            return path;
+        }
+
         const tokens = [];
         path.split('/').filter(t => {
             return t !== '.' && t.length > 0
@@ -65,14 +69,17 @@ import './wasm_exec.js';
             this.ps_ = ps;
             this.nextFd_ = 1000;
 
-            this.files_.set(this.ps_.cwd(), {
+            this.files_.set('/', {
                 directory: true,
             });
             this.files_.set('/tmp', {
                 directory: true,
             });
-            // Temporary hack to enable 'go env'.
-            this.files_.set('/go', {
+            this.files_.set('/root', {
+                directory: true,
+            });
+            // GOROOT
+            this.files_.set('/root/go', {
                 directory: true,
             });
         }
@@ -214,7 +221,7 @@ import './wasm_exec.js';
 	open(path, flags, mode, callback) {
             path = absPath(this.ps_.cwd(), path);
             if (!this.files_.has(path)) {
-                if (!(flag & this.constants.O_CREAT)) {
+                if (!(flags & this.constants.O_CREAT)) {
                     const err = new Error('no such file or directory');
                     err.code = 'ENOENT';
                     callback(err);
@@ -225,7 +232,7 @@ import './wasm_exec.js';
                     directory: false,
                 });
             }
-            // TODO: Abort is path is a directory.
+            // TODO: Abort if path is a directory.
             if (flags & constants.O_TRUNC) {
                 this.files_.set(path, {
                     content:   new Uint8Array(0),
@@ -340,7 +347,7 @@ import './wasm_exec.js';
 
     class Process {
         constructor() {
-            this.wd_ = '/';
+            this.wd_ = '/root';
         }
 
         getuid() { return -1; }
@@ -385,7 +392,10 @@ export function execGo(argv) {
         WebAssembly.instantiateStreaming(fetch("go1.14beta1.wasm"), go.importObject).then(result => {
             go.exit = resolve;
             go.argv = go.argv.concat(argv || []);
-            // TODO: Pass env?
+            go.env = {
+                TMPDIR: '/tmp',
+                HOME:   '/root',
+            };
             go.run(result.instance);
         }).catch(reject);
     })
