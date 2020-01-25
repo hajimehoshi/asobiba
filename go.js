@@ -4,9 +4,35 @@
 import './wasm_exec.js';
 
 (() => {
+    const statModes = {
+        S_IFMT:   0o170000, // bit mask for the file type bit fields
+        S_IFSOCK: 0o140000, // socket
+        S_IFLNK:  0o120000, // symbolic link
+        S_IFREG:  0o100000, // regular file
+        S_IFBLK:  0o060000, // block device
+        S_IFDIR:  0o040000, // directory
+        S_IFCHR:  0o020000, // character device
+        S_IFIFO:  0o010000, // FIFO
+        S_ISUID:  0o004000, // set UID bit
+        S_ISGID:  0o002000, // set-group-ID bit (see below)
+        S_ISVTX:  0o001000, // sticky bit (see below)
+        S_IRWXU:  0o0700,   // mask for file owner permissions
+        S_IRUSR:  0o0400,   // owner has read permission
+        S_IWUSR:  0o0200,   // owner has write permission
+        S_IXUSR:  0o0100,   // owner has execute permission
+        S_IRWXG:  0o0070,   // mask for group permissions
+        S_IRGRP:  0o0040,   // group has read permission
+        S_IWGRP:  0o0020,   // group has write permission
+        S_IXGRP:  0o0010,   // group has execute permission
+        S_IRWXO:  0o0007,   // mask for permissions for others (not in group)
+        S_IROTH:  0o0004,   // others have read permission
+        S_IWOTH:  0o0002,   // others have write permission
+        S_IXOTH:  0o0001,   // others have execute permission
+    };
+
     function enosys() {
-	const err = new Error("not implemented");
-	err.code = "ENOSYS";
+	const err = new Error('not implemented');
+	err.code = 'ENOSYS';
 	return err;
     }
 
@@ -40,6 +66,9 @@ import './wasm_exec.js';
             this.nextFd_ = 1000;
 
             this.files_.set(this.ps_.cwd(), {
+                directory: true,
+            });
+            this.files_.set('/go', {
                 directory: true,
             });
         }
@@ -255,7 +284,7 @@ import './wasm_exec.js';
             let mode = 0;
             const file = this.files_.get(path);
             if (file.directory) {
-                mode |= 0x80000000;
+                mode |= statModes.S_IFDIR;
             }
             callback(null, {
                 mode:    mode,
@@ -271,7 +300,7 @@ import './wasm_exec.js';
                 atimeMs: 0,
                 mtimeMs: 0,
                 ctimeMs: 0,
-                isDirectory: () => !!(mode & 0x80000000),
+                isDirectory: () => !!(mode & statModes.S_IFDIR),
             });
         }
     }
