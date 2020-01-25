@@ -380,22 +380,23 @@ import './wasm_exec.js';
     window.process = process;
 })();
 
-// Polyfill
-if (!WebAssembly.instantiateStreaming) {
-    WebAssembly.instantiateStreaming = async (resp, importObject) => {
-        const source = await (await resp).arrayBuffer();
-        return await WebAssembly.instantiate(source, importObject);
-    };
-}
-
 export function execGo(argv) {
     return new Promise((resolve, reject) => {
+        // Polyfill
+        let instantiateStreaming = WebAssembly.instantiateStreaming;
+        if (!instantiateStreaming) {
+            instantiateStreaming = async (resp, importObject) => {
+                const source = await (await resp).arrayBuffer();
+                return await WebAssembly.instantiate(source, importObject);
+            };
+        }
+
         // Note: go1.14beta1.wasm is created by this command:
         //
         //    cd [go source]/src/cmd/go
         //    GOOS=js GOARCH=wasm go1.14beta1 build -trimpath -o=go1.14beta1.wasm .
         const go = new Go();
-        WebAssembly.instantiateStreaming(fetch("go1.14beta1.wasm"), go.importObject).then(result => {
+        instantiateStreaming(fetch("go1.14beta1.wasm"), go.importObject).then(result => {
             go.exit = resolve;
             go.argv = go.argv.concat(argv || []);
             go.env = {
