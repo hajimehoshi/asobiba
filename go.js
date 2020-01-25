@@ -68,6 +68,8 @@ import './wasm_exec.js';
             this.fds_ = new Map();
             this.ps_ = ps;
             this.nextFd_ = 1000;
+            this.stdout_ = '';
+            this.stderr_ = '';
 
             this.files_.set('/', {
                 directory: true,
@@ -104,25 +106,46 @@ import './wasm_exec.js';
 
         writeSync(fd, buf) {
             if (fd === 1) {
-                console.log(new TextDecoder("utf-8").decode(buf));
+                this.stdout_ += new TextDecoder("utf-8").decode(buf);
+                for (;;) {
+                    const n = this.stdout_.indexOf('\n');
+                    if (n < 0) {
+                        break;
+                    }
+                    console.log(this.stdout_.substring(0, n));
+                    this.stdout_ = this.stdout_.substring(n+1);
+                }
                 return buf.length;
             }
             if (fd === 2) {
-                console.warn(new TextDecoder("utf-8").decode(buf));
+                this.stderr_ += new TextDecoder("utf-8").decode(buf);
+                for (;;) {
+                    const n = this.stderr_.indexOf('\n');
+                    if (n < 0) {
+                        break;
+                    }
+                    console.warn(this.stderr_.substring(0, n));
+                    this.stderr_ = this.stderr_.substring(n+1);
+                }
                 return buf.length;
             }
 
             const handle = this.fds_.get(fd);
-            const content = this.files_.get(handle.path).content;
+            let content = this.files_.get(handle.path).content;
             let finalLength = handle.offset + buf.length;
 
             // Extend the size if necessary
-            let n = content.buffer.length;
+            let n = content.buffer.byteLength;
+            if (n === 0) {
+                n = 1024;
+            }
             while (n < finalLength) {
                 n *= 2;
             }
-            if (content.buffer.length !== n) {
-                content = new Uint8Array(new ArrayBuffer(n), 0, finalLength).set(content);
+            if (content.buffer.byteLength !== n) {
+                const old = content;
+                content = new Uint8Array(new ArrayBuffer(n), 0, finalLength);
+                content.set(old);
             } else {
                 content = new Uint8Array(content.buffer, 0, finalLength);
             }
@@ -167,7 +190,7 @@ import './wasm_exec.js';
         }
 
 	fstat(fd, callback) {
-            this.stat_(path, callback);
+            this.stat_(this.fds_.get(fd).path, callback);
         }
 
 	fsync(fd, callback) {
@@ -239,7 +262,7 @@ import './wasm_exec.js';
                 });
             }
             // TODO: Abort if path is a directory.
-            if (flags & constants.O_TRUNC) {
+            if (flags & this.constants.O_TRUNC) {
                 this.files_.set(path, {
                     content:   new Uint8Array(0),
                     directory: false,
@@ -263,8 +286,8 @@ import './wasm_exec.js';
 
             const content = this.files_.get(handle.path).content;
             let n = length;
-            if (handle.offset + length > content.length) {
-                n = content.length - handle.offset;
+            if (handle.offset + length > content.byteLength) {
+                n = content.byteLength - handle.offset;
             }
             if (n < buffer.length - offset) {
                 n = buffer.length - offset
@@ -400,9 +423,10 @@ export function execGo(argv, source) {
             go.exit = resolve;
             go.argv = go.argv.concat(argv || []);
             go.env = {
-                TMPDIR: '/tmp',
-                HOME:   '/root',
-                GOROOT: '/usr/go',
+                TMPDIR:      '/tmp',
+                HOME:        '/root',
+                GOROOT:      '/usr/go',
+                GO111MODULE: 'on',
             };
             go.run(result.instance);
         }).catch(reject);
