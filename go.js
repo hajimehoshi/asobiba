@@ -372,15 +372,29 @@ import { stdfiles } from './stdfiles.js';
                 return;
             }
             let mode = 0;
+            let nlink = 0;
             const file = this.files_.get(path);
             if (file.directory) {
                 mode |= statModes.S_IFDIR;
+                nlink = 2;
+                for (const key of this.files_.keys()) {
+                    if (key === path)
+                        continue;
+                    if (!key.startsWith(path))
+                        continue;
+                    if (key.substring(path.length+1).indexOf('/') >= 0)
+                        continue;
+                    nlink++;
+                }
+            } else {
+                mode |= statModes.S_IFREG;
+                nlink = 1;
             }
             callback(null, {
                 mode:    mode,
                 dev:     0,
                 ino:     0,
-                nlink:   0,
+                nlink:   nlink,
                 uid:     0,
                 gid:     0,
                 rdev:    0,
