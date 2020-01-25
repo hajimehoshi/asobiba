@@ -4,8 +4,15 @@
 import { execGo } from './go.js';
 
 window.addEventListener('message', (e) => {
-    execGo(["env"], e.data).then(code => {
-        console.warn("exit code:", code);
+    // TODO: Split the source into multiple files. See https://play.golang.org/p/KLZR7NlVZNX
+    const src = e.data;
+    const data = new TextEncoder().encode(src);
+    execGo(['build', 'main.go'], {
+        'main.go': data,
+    }).then(code => {
+        if (code !== 0) {
+            console.warn('exit code:', code);
+        }
     }).catch(e => {
         console.error(e);
     });

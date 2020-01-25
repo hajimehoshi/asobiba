@@ -62,8 +62,24 @@ import './wasm_exec.js';
         return path;
     }
 
+    function dirs(path) {
+        const result = [];
+        let current = '';
+        const tokens = path.split('/');
+        for (let i = 0; i < tokens.length; i++) {
+            const token = tokens[i];
+            if (current !== '/') {
+                current += '/';
+            }
+            current += token;
+            result.push(current);
+        }
+        return result;
+    }
+
     class FS {
         constructor(ps) {
+            // TODO: What about using localStorage except for /tmp?
             this.files_ = new Map();
             this.fds_ = new Map();
             this.ps_ = ps;
@@ -216,17 +232,11 @@ import './wasm_exec.js';
 
 	mkdir(path, perm, callback) {
             path = absPath(this.ps_.cwd(), path);
-            let current = '';
-            const tokens = path.split('/');
-            for (let i = 0; i < tokens.length; i++) {
-                const token = tokens[i];
-                if (current !== '/') {
-                    current += '/';
-                }
-                current += token;
-                const file = this.files_.get(current);
+            const ds = dirs(path);
+            for (let i = 0; i < ds.length; i++) {
+                const file = this.files_.get(ds[i]);
                 if (!file) {
-                    if (i !== tokens.length - 1) {
+                    if (i !== ds.length - 1) {
                         const err = new Error('file exists');
                         err.code = 'EEXIST';
                         callback(err);
@@ -289,8 +299,8 @@ import './wasm_exec.js';
             if (handle.offset + length > content.byteLength) {
                 n = content.byteLength - handle.offset;
             }
-            if (n < buffer.length - offset) {
-                n = buffer.length - offset
+            if (n > buffer.length - offset) {
+                n = buffer.length - offset;
             }
 
             for (let i = 0; i < n; i++) {
@@ -372,6 +382,35 @@ import './wasm_exec.js';
                 isDirectory: () => !!(mode & statModes.S_IFDIR),
             });
         }
+
+        addWorkingDirectory(dir, files) {
+            for (const path of dirs(dir)) {
+                const file = this.files_.get(path);
+                if (file) {
+                    if (file.directory) {
+                        continue;
+                    }
+                    const err = new Error('file exists');
+                    err.code = 'EEXIST';
+                    throw err;
+                }
+                this.files_.set(path, {
+                    directory: true,
+                });
+            }
+            // TODO: Consider the case when the files include directories.
+            for (const filename in files) {
+                const path = dir + '/' + filename;
+                this.files_.set(path, {
+                    content:   files[filename],
+                    directory: false,
+                })
+            }
+        }
+
+        removeWorkingDirectory(dir) {
+            // TODO: Implement this
+        }
     }
 
     class Process {
@@ -403,7 +442,16 @@ import './wasm_exec.js';
     window.process = process;
 })();
 
-export function execGo(argv, source) {
+function randomToken() {
+    let result = '';
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    for (let i = 0; i < 12; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+}
+
+export function execGo(argv, files) {
     return new Promise((resolve, reject) => {
         // Polyfill
         let instantiateStreaming = WebAssembly.instantiateStreaming;
@@ -413,6 +461,11 @@ export function execGo(argv, source) {
                 return await WebAssembly.instantiate(source, importObject);
             };
         }
+
+        // TODO: Detect collision.
+        const wd = '/tmp/wd-' + randomToken();
+        window.fs.addWorkingDirectory(wd, files);
+        window.process.chdir(wd);
 
         // Note: go1.14beta1.wasm is created by this command:
         //
@@ -429,6 +482,8 @@ export function execGo(argv, source) {
                 GO111MODULE: 'on',
             };
             go.run(result.instance);
-        }).catch(reject);
+        }).catch(reject).finally(() => {
+            window.fs.removeWorkingDirectory(wd);
+        });
     })
 }
