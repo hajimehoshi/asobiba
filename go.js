@@ -323,7 +323,9 @@ import { stdfiles } from './stdfiles.js';
         }
 
 	readdir(path, callback) {
-            callback(enosys());
+            path = absPath(this.ps_.cwd(), path);
+            const filenames = this.filenamesAt_(path);
+            callback(null, filenames);
         }
 
 	readlink(path, callback) {
@@ -409,6 +411,21 @@ import { stdfiles } from './stdfiles.js';
                     directory: true,
                 });
             }
+        }
+
+        filenamesAt_(dir) {
+            const result = [];
+            for (const key of this.files_.keys()) {
+                if (key === dir)
+                    continue;
+                if (!key.startsWith(dir))
+                    continue;
+                const filename = key.substring(dir.length+1);
+                if (filename.indexOf('/') >= 0)
+                    continue;
+                result.push(filename);
+            }
+            return result;
         }
 
         addWorkingDirectory_(dir, files) {
