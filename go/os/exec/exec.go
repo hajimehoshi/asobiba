@@ -125,8 +125,10 @@ func (c *Cmd) Run() error {
 	})
 	defer stderr.Release()
 
+	// All usages of stdout/stderr are forbidden until the channel receives.
 	js.Global().Get("_goInternal").Call("execCommand", c.Path, args, env, stdout, stderr).Call("then", then).Call("catch", catch)
 	err := <-ch
+
 	if _, err := c.Stdout.Write(stdoutBuf); err != nil {
 		return err
 	}

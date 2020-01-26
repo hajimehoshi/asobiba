@@ -596,11 +596,15 @@ class _GoInternal {
             instantiateStreaming(fetch(wasm), go.importObject).then(result => {
                 go.argv = go.argv.concat(argv || []);
                 go.env = {...go.env, ...defaultEnv, ...env};
-                go.run(result.instance).then(resolve).catch(e => {
+                go.run(result.instance).then(() => {
+                    defer();
+                    resolve();
+                }).catch(e => {
+                    defer();
                     console.error("command failed: ", {command, 'argv': go.argv, 'env': go.env});
                     console.error("  files in wd: ", globalThis.fs.filenamesAt_(globalThis.process.cwd()));
                     reject(e);
-                }).finally(defer);
+                });
             });
         })
     }
