@@ -82,7 +82,7 @@ func (c *Cmd) Run() error {
 	}
 
 	var args []interface{}
-	for _, arg := range c.Args {
+	for _, arg := range c.Args[1:] {
 		args = append(args, arg)
 	}
 

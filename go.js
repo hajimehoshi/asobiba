@@ -569,9 +569,9 @@ class _GoInternal {
             this.stderr_ = stderr;
             const origCwd = globalThis.process.cwd();
             const defer = () => {
+                globalThis.process.chdir(origCwd);
                 this.stdout_ = origStdout;
                 this.stderr_ = origStderr;
-                globalThis.process.chdir(origCwd);
             };
 
             const go = new Go();
@@ -586,20 +586,21 @@ class _GoInternal {
                 return;
             }
 
-            env = {
-                ...{
-                    TMPDIR:      '/tmp',
-                    HOME:        '/root',
-                    GOROOT:      '/go',
-                    GO111MODULE: 'on',
-                },
-                ...env,
+            const defaultEnv = {
+                TMPDIR:      '/tmp',
+                HOME:        '/root',
+                GOROOT:      '/go',
+                GO111MODULE: 'on',
             };
 
             instantiateStreaming(fetch(wasm), go.importObject).then(result => {
                 go.argv = go.argv.concat(argv || []);
-                go.env = env;
-                go.run(result.instance).then(resolve).catch(reject).finally(defer);
+                go.env = {...go.env, ...defaultEnv, ...env};
+                go.run(result.instance).then(resolve).catch(e => {
+                    console.error("command failed: ", {command, 'argv': go.argv, 'env': go.env});
+                    console.error("  files in wd: ", globalThis.fs.filenamesAt_(globalThis.process.cwd()));
+                    reject(e);
+                }).finally(defer);
             });
         })
     }
