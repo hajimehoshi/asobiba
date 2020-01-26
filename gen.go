@@ -44,6 +44,9 @@ func run() error {
 	if err := prepareGo(tmp); err != nil {
 		return err
 	}
+	if err := replaceFiles(tmp); err != nil {
+		return err
+	}
 	if err := genStdfiles(tmp); err != nil {
 		return err
 	}
@@ -96,6 +99,47 @@ func prepareGo(tmp string) error {
 	}
 	fmt.Printf("Checking go version: %s\n", strings.TrimSpace(string(out)))
 
+	return nil
+}
+
+func replaceFiles(tmp string) error {
+	// Rewite files in os/exec
+	if err := os.RemoveAll(filepath.Join(tmp, "go", "src", "os", "exec")); err != nil {
+		return err
+	}
+	if err := os.Mkdir(filepath.Join(tmp, "go", "src", "os", "exec"), 0777); err != nil {
+		return err
+	}
+
+	dir, err := os.Open(filepath.Join("go", "os", "exec"))
+	if err != nil {
+		return err
+	}
+	fs, err := dir.Readdir(0)
+	if err != nil {
+		return err
+	}
+	for _, f := range fs {
+		if f.IsDir() {
+			continue
+		}
+
+		in, err := os.Open(filepath.Join("go", "os", "exec", f.Name()))
+		if err != nil {
+			return err
+		}
+		defer in.Close()
+		out, err := os.Create(filepath.Join(tmp, "go", "src", "os", "exec", f.Name()))
+		if err != nil {
+			return err
+		}
+		defer out.Close()
+
+		if _, err := io.Copy(out, in); err != nil {
+			return err
+		}
+	}
+	
 	return nil
 }
 
