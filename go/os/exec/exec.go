@@ -65,6 +65,9 @@ func (c *Cmd) Run() error {
 	if c.Dir != "" {
 		panic("exec: Dir is not supported")
 	}
+	if c.Stdin != nil {
+		panic("exec: Stdin is not supported")
+	}
 	if len(c.ExtraFiles) > 0 {
 		panic("exec: ExtraFiles is not supported")
 	}
@@ -105,8 +108,26 @@ func (c *Cmd) Run() error {
 	})
 	defer catch.Release()
 
-	// TODO: Pass stdin, stdout, stderr
-	js.Global().Get("_goInternal").Call("execCommand", c.Path, args, env).Call("then", then).Call("catch", catch)
+	stdout := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		buf := make([]byte, args[0].Get("byteLength").Int())
+		js.CopyBytesToGo(buf, args[0])
+		if _, err := c.Stdout.Write(buf); err != nil {
+			return err.Error()
+		}
+		return nil
+	})
+	defer stdout.Release()
+	stderr := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		buf := make([]byte, args[0].Get("byteLength").Int())
+		js.CopyBytesToGo(buf, args[0])
+		if _, err := c.Stderr.Write(buf); err != nil {
+			return err.Error()
+		}
+		return nil
+	})
+	defer stderr.Release()
+
+	js.Global().Get("_goInternal").Call("execCommand", c.Path, args, env, stdout, stderr).Call("then", then).Call("catch", catch)
 	return <-ch
 }
 

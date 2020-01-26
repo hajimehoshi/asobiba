@@ -85,8 +85,6 @@ import { stdfiles } from './stdfiles.js';
             this.fds_ = new Map();
             this.ps_ = ps;
             this.nextFd_ = 1000;
-            this.stdout_ = '';
-            this.stderr_ = '';
 
             this.files_.set('/', {
                 directory: true,
@@ -153,27 +151,11 @@ import { stdfiles } from './stdfiles.js';
 
         writeSync(fd, buf) {
             if (fd === 1) {
-                this.stdout_ += new TextDecoder('utf-8').decode(buf);
-                for (;;) {
-                    const n = this.stdout_.indexOf('\n');
-                    if (n < 0) {
-                        break;
-                    }
-                    console.log(this.stdout_.substring(0, n));
-                    this.stdout_ = this.stdout_.substring(n+1);
-                }
+                globalThis._goInternal.writeToStdout(buf);
                 return buf.length;
             }
             if (fd === 2) {
-                this.stderr_ += new TextDecoder('utf-8').decode(buf);
-                for (;;) {
-                    const n = this.stderr_.indexOf('\n');
-                    if (n < 0) {
-                        break;
-                    }
-                    console.warn(this.stderr_.substring(0, n));
-                    this.stderr_ = this.stderr_.substring(n+1);
-                }
+                globalThis._goInternal.writeToStderr(buf);
                 return buf.length;
             }
 
@@ -516,57 +498,111 @@ export function execGo(argv, files) {
         const origCwd = globalThis.process.cwd();
         globalThis.process.chdir(wd);
 
-        globalThis._goInternal.execCommand('go', argv, {}).then(resolve).catch(reject).finally(() => {
+        globalThis._goInternal.execCommand('go', argv, {}, null, null).then(resolve).catch(reject).finally(() => {
             globalThis.fs.emptyDirectory_('/tmp');
         });
     })
 }
 
-let goInternal = {};
+class _GoInternal {
+    constructor() {
+        this.stdout_ = null;
+        this.stderr_ = null;
+        this.stdoutBuf_ = "";
+        this.stderrBuf_ = "";
+    }
 
-goInternal.execCommand = (command, argv, env) => {
-    return new Promise((resolve, reject) => {
-        // Polyfill
-        let instantiateStreaming = WebAssembly.instantiateStreaming;
-        if (!instantiateStreaming) {
-            instantiateStreaming = async (resp, importObject) => {
-                const source = await (await resp).arrayBuffer();
-                return await WebAssembly.instantiate(source, importObject);
-            };
-        }
-
-        const origCwd = globalThis.process.cwd();
-        const go = new Go();
-        const goversion = '1.14beta1'
-        let wasm = ({
-            'go':                           `./bin/go${goversion}.wasm`,
-            '/go/pkg/tool/js_wasm/compile': `./bin/compile${goversion}.wasm`,
-            '/go/pkg/tool/js_wasm/link':    `./bin/link${goversion}.wasm`,
-        })[command];
-        if (!wasm) {
-            reject('command not found: ' + command);
+    writeToStdout(buf) {
+        if (this.stdout_) {
+            const err = this.stdout_(buf);
+            if (!err) {
+                throw err;
+            }
             return;
         }
 
-        env = {
-            ...{
-                TMPDIR:      '/tmp',
-                HOME:        '/root',
-                GOROOT:      '/go',
-                GO111MODULE: 'on',
-            },
-            ...env,
-        };
+        this.stdoutBuf_ += new TextDecoder('utf-8').decode(buf);
+        for (;;) {
+            const n = this.stdoutBuf_.indexOf('\n');
+            if (n < 0) {
+                break;
+            }
+            console.log(this.stdoutBuf_.substring(0, n));
+            this.stdoutBuf_ = this.stdoutBuf_.substring(n+1);
+        }
+    }
 
-        instantiateStreaming(fetch(wasm), go.importObject).then(result => {
-            go.exit = resolve;
-            go.argv = go.argv.concat(argv || []);
-            go.env = env;
-            go.run(result.instance);
-        }).catch(reject).finally(() => {
-            globalThis.process.chdir(origCwd);
-        });
-    })
+    writeToStderr(buf) {
+        if (this.stderr_) {
+            const err =this.stderr_(buf);
+            if (!err) {
+                throw err;
+            }
+            return;
+        }
+
+        this.stderrBuf_ += new TextDecoder('utf-8').decode(buf);
+        for (;;) {
+            const n = this.stderrBuf_.indexOf('\n');
+            if (n < 0) {
+                break;
+            }
+            console.warn(this.stderrBuf_.substring(0, n));
+            this.stderrBuf_ = this.stderrBuf_.substring(n+1);
+        }
+    }
+
+    execCommand(command, argv, env, stdout, stderr) {
+        return new Promise((resolve, reject) => {
+            // Polyfill
+            let instantiateStreaming = WebAssembly.instantiateStreaming;
+            if (!instantiateStreaming) {
+                instantiateStreaming = async (resp, importObject) => {
+                    const source = await (await resp).arrayBuffer();
+                    return await WebAssembly.instantiate(source, importObject);
+                };
+            }
+
+            const origStdout = this.stdout_;
+            const origStderr = this.stderr_;
+            this.stdout_ = stdout;
+            this.stderr_ = stderr;
+
+            const origCwd = globalThis.process.cwd();
+            const go = new Go();
+            const goversion = '1.14beta1'
+            let wasm = ({
+                'go':                           `./bin/go${goversion}.wasm`,
+                '/go/pkg/tool/js_wasm/compile': `./bin/compile${goversion}.wasm`,
+                '/go/pkg/tool/js_wasm/link':    `./bin/link${goversion}.wasm`,
+            })[command];
+            if (!wasm) {
+                reject('command not found: ' + command);
+                return;
+            }
+
+            env = {
+                ...{
+                    TMPDIR:      '/tmp',
+                    HOME:        '/root',
+                    GOROOT:      '/go',
+                    GO111MODULE: 'on',
+                },
+                ...env,
+            };
+
+            instantiateStreaming(fetch(wasm), go.importObject).then(result => {
+                go.exit = resolve;
+                go.argv = go.argv.concat(argv || []);
+                go.env = env;
+                go.run(result.instance);
+            }).catch(reject).finally(() => {
+                this.stdout_ = origStdout;
+                this.stderr_ = origStderr;
+                globalThis.process.chdir(origCwd);
+            });
+        })
+    }
 }
 
-globalThis._goInternal = goInternal;
+globalThis._goInternal = new _GoInternal();
