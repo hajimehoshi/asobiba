@@ -94,6 +94,12 @@ import { stdfiles } from './stdfiles.js';
             this.files_.set('/tmp', {
                 directory: true,
             });
+            this.files_.set('/dev', {
+                directory: true,
+            });
+            this.files_.set('/dev/null', {
+                directory: true,
+            });
             this.files_.set('/root', {
                 directory: true,
             });
@@ -118,6 +124,20 @@ import { stdfiles } from './stdfiles.js';
                     content: encoder.encode(atob(stdfiles[filename])),
                 });
             }
+
+            // Dummy files for tools
+            this.files_.set(goroot + '/pkg', {
+                directory: true,
+            });
+            this.files_.set(goroot + '/pkg/tool', {
+                directory: true,
+            });
+            this.files_.set(goroot + '/pkg/tool/js_wasm', {
+                directory: true,
+            });
+            this.files_.set(goroot + '/pkg/tool/js_wasm/compile', {
+                content: new Uint8Array(0),
+            });
         }
 
         get constants() {
@@ -158,6 +178,9 @@ import { stdfiles } from './stdfiles.js';
             }
 
             const handle = this.fds_.get(fd);
+            if (handle.path === '/dev/null') {
+                return buf.length;
+            }
             let content = this.files_.get(handle.path).content;
             let finalLength = handle.offset + buf.length;
 
