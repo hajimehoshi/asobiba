@@ -242,8 +242,9 @@ import { stdfiles } from './stdfiles.js';
         }
 
 	ftruncate(fd, length, callback) {
-            // TODO: Implement this?
-            callback(enosys());
+            const file = this.files_.get(this.fds_.get(fd).path);
+            file.content = new Uint8Array(file.content.buffer, 0, length);
+            callback(null);
         }
 
 	lchown(path, uid, gid, callback) {
