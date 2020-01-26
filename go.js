@@ -585,6 +585,7 @@ class _GoInternal {
                 reject('command not found: ' + command);
                 return;
             }
+            const commandName = command.split('/').pop()
 
             const defaultEnv = {
                 TMPDIR:      '/tmp',
@@ -594,7 +595,7 @@ class _GoInternal {
             };
 
             instantiateStreaming(fetch(wasm), go.importObject).then(result => {
-                go.argv = go.argv.concat(argv || []);
+                go.argv = [commandName].concat(argv || []);
                 go.env = {...go.env, ...defaultEnv, ...env};
                 go.run(result.instance).then(() => {
                     defer();
