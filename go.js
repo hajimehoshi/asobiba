@@ -38,7 +38,15 @@ import { stdfiles } from './stdfiles.js';
     }
 
     function absPath(cwd, path) {
+        const removeLastSlash = (path) => {
+            if (path[path.length-1] === '/' && path !== '/') {
+                path = path.substring(0, path.length-1);
+            }
+            return path
+        }
+
         if (path[0] === '/') {
+            path = removeLastSlash(path);
             return path;
         }
 
@@ -57,9 +65,7 @@ import { stdfiles } from './stdfiles.js';
             wd += '/';
         }
         path = wd + tokens.join('/');
-        if (path[path.length-1] === '/' && path !== '/') {
-            path = path.substring(0, path.length-1);
-        }
+        path = removeLastSlash(path);
         return path;
     }
 
