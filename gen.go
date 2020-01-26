@@ -123,6 +123,14 @@ func genBins() error {
 			Name: "go" + goversion + ".wasm",
 			Path: "cmd/go",
 		},
+		{
+			Name: "compile" + goversion + ".wasm",
+			Path: "cmd/compile",
+		},
+		{
+			Name: "link" + goversion + ".wasm",
+			Path: "cmd/link",
+		},
 	}
 	for _, file := range files {
 		cmd := exec.Command(goname, "build", "-trimpath", "-o=bin/"+file.Name, file.Path)

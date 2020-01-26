@@ -442,7 +442,7 @@ import { stdfiles } from './stdfiles.js';
             }
         }
 
-        removeWorkingDirectory_(dir) {
+        emptyDirectory_(dir) {
             // TODO: Implement this
         }
     }
@@ -487,6 +487,20 @@ function randomToken() {
 
 export function execGo(argv, files) {
     return new Promise((resolve, reject) => {
+        // TODO: Detect collision.
+        const wd = '/tmp/wd-' + randomToken();
+        window.fs.addWorkingDirectory_(wd, files);
+        const origCwd = window.process.cwd();
+        window.process.chdir(wd);
+
+        execCommand('go', argv).then(resolve).catch(reject).finally(() => {
+            window.fs.emptyDirectory_('/tmp');
+        });
+    })
+}
+
+function execCommand(command, argv) {
+    return new Promise((resolve, reject) => {
         // Polyfill
         let instantiateStreaming = WebAssembly.instantiateStreaming;
         if (!instantiateStreaming) {
@@ -496,14 +510,19 @@ export function execGo(argv, files) {
             };
         }
 
-        // TODO: Detect collision.
-        const wd = '/tmp/wd-' + randomToken();
-        window.fs.addWorkingDirectory_(wd, files);
         const origCwd = window.process.cwd();
-        window.process.chdir(wd);
-
         const go = new Go();
-        instantiateStreaming(fetch("./bin/go1.14beta1.wasm"), go.importObject).then(result => {
+        let wasm = ({
+            'go':      './bin/go1.14beta1.wasm',
+            'compile': './bin/compile1.14beta1.wasm',
+            'link':    './bin/link1.14beta1.wasm',
+        })[command];
+        if (!wasm) {
+            reject('command not found: ' + command);
+            return;
+        }
+
+        instantiateStreaming(fetch(wasm), go.importObject).then(result => {
             go.exit = resolve;
             go.argv = go.argv.concat(argv || []);
             go.env = {
@@ -515,7 +534,6 @@ export function execGo(argv, files) {
             go.run(result.instance);
         }).catch(reject).finally(() => {
             window.process.chdir(origCwd);
-            window.fs.removeWorkingDirectory_(wd);
         });
     })
 }
