@@ -599,13 +599,7 @@ class _GoInternal {
             instantiateStreaming(fetch(wasm), go.importObject).then(result => {
                 go.argv = go.argv.concat(argv || []);
                 go.env = env;
-                go.run(result.instance).then(() => {
-                    defer();
-                    resolve();
-                }).catch((e) => {
-                    defer();
-                    reject(e);
-                });
+                go.run(result.instance).then(resolve).catch(reject).finally(defer);
             });
         })
     }
