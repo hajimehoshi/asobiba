@@ -515,7 +515,7 @@ class _GoInternal {
     writeToStdout(buf) {
         if (this.stdout_) {
             const err = this.stdout_(buf);
-            if (!err) {
+            if (err) {
                 throw err;
             }
             return;
@@ -534,8 +534,8 @@ class _GoInternal {
 
     writeToStderr(buf) {
         if (this.stderr_) {
-            const err =this.stderr_(buf);
-            if (!err) {
+            const err = this.stderr_(buf);
+            if (err) {
                 throw err;
             }
             return;
