@@ -502,12 +502,8 @@ export function execGo(argv, files) {
         const origCwd = window.process.cwd();
         window.process.chdir(wd);
 
-        // Note: go1.14beta1.wasm is created by this command:
-        //
-        //    cd [go source]/src/cmd/go
-        //    GOOS=js GOARCH=wasm go1.14beta1 build -trimpath -o=go1.14beta1.wasm .
         const go = new Go();
-        instantiateStreaming(fetch("go1.14beta1.wasm"), go.importObject).then(result => {
+        instantiateStreaming(fetch("./bin/go1.14beta1.wasm"), go.importObject).then(result => {
             go.exit = resolve;
             go.argv = go.argv.concat(argv || []);
             go.env = {

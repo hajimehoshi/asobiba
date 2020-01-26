@@ -9,11 +9,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"io/ioutil"
 )
 
 func main() {
@@ -22,10 +22,25 @@ func main() {
 	}
 }
 
-func files() (string, []string, error) {
+func run() error {
+	if err := genStdfiles(); err != nil {
+		return err
+	}
+	if err := genBins(); err != nil {
+		return err
+	}
+	return nil
+}
+
+const (
+	goversion = "1.14beta1"
+	goname    = "go" + goversion
+)
+
+func stdfiles() (string, []string, error) {
 	var src string
 	{
-		cmd := exec.Command("go1.14beta1", "list", "-f", "{{.Dir}}", "runtime")
+		cmd := exec.Command(goname, "list", "-f", "{{.Dir}}", "runtime")
 		cmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
 		cmd.Stderr = os.Stderr
 		out, err := cmd.Output()
@@ -35,7 +50,7 @@ func files() (string, []string, error) {
 		src = filepath.Join(strings.TrimSpace(string(out)), "..")
 	}
 
-	cmd := exec.Command("go1.14beta1", "list", "-f", "dir: {{.Dir}}\n{{range .GoFiles}}file: {{.}}\n{{end}}{{range .SFiles}}file: {{.}}\n{{end}}", "std")
+	cmd := exec.Command(goname, "list", "-f", "dir: {{.Dir}}\n{{range .GoFiles}}file: {{.}}\n{{end}}{{range .SFiles}}file: {{.}}\n{{end}}", "std")
 	cmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
 	cmd.Stderr = os.Stderr
 	out, err := cmd.Output()
@@ -64,8 +79,8 @@ func files() (string, []string, error) {
 	return src, files, nil
 }
 
-func run() error {
-	src, fs, err := files()
+func genStdfiles() error {
+	src, fs, err := stdfiles()
 	if err != nil {
 		return err
 	}
@@ -79,7 +94,7 @@ func run() error {
 		contents[f] = base64.StdEncoding.EncodeToString(c)
 	}
 
-	f, err := os.OpenFile("stdfiles.js", os.O_WRONLY | os.O_CREATE, 0644)
+	f, err := os.OpenFile("stdfiles.js", os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
 		return err
 	}
@@ -95,6 +110,27 @@ func run() error {
 	e := json.NewEncoder(f)
 	if err := e.Encode(contents); err != nil {
 		return err
+	}
+	return nil
+}
+
+func genBins() error {
+	files := []struct {
+		Name string
+		Path string
+	}{
+		{
+			Name: "go" + goversion + ".wasm",
+			Path: "cmd/go",
+		},
+	}
+	for _, file := range files {
+		cmd := exec.Command(goname, "build", "-trimpath", "-o=bin/"+file.Name, file.Path)
+		cmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
