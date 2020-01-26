@@ -139,7 +139,13 @@ import { stdfiles } from './stdfiles.js';
             this.files_.set(goroot + '/pkg/tool/js_wasm', {
                 directory: true,
             });
+            this.files_.set(goroot + '/pkg/tool/js_wasm/asm', {
+                content: new Uint8Array(0),
+            });
             this.files_.set(goroot + '/pkg/tool/js_wasm/compile', {
+                content: new Uint8Array(0),
+            });
+            this.files_.set(goroot + '/pkg/tool/js_wasm/link', {
                 content: new Uint8Array(0),
             });
         }
@@ -587,6 +593,7 @@ class _GoInternal {
             const goversion = '1.14beta1'
             let wasm = ({
                 'go':                           `./bin/go${goversion}.wasm`,
+                '/go/pkg/tool/js_wasm/asm':     `./bin/asm${goversion}.wasm`,
                 '/go/pkg/tool/js_wasm/compile': `./bin/compile${goversion}.wasm`,
                 '/go/pkg/tool/js_wasm/link':    `./bin/link${goversion}.wasm`,
             })[command];

@@ -236,6 +236,10 @@ func genBins(tmp string) error {
 			Path: "cmd/go",
 		},
 		{
+			Name: "asm" + goversion + ".wasm",
+			Path: "cmd/asm",
+		},
+		{
 			Name: "compile" + goversion + ".wasm",
 			Path: "cmd/compile",
 		},
