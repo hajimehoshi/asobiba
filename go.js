@@ -499,6 +499,7 @@ export function execGo(argv, files) {
         // TODO: Detect collision.
         const wd = '/tmp/wd-' + randomToken();
         window.fs.addWorkingDirectory_(wd, files);
+        const origCwd = window.process.cwd();
         window.process.chdir(wd);
 
         // Note: go1.14beta1.wasm is created by this command:
@@ -517,6 +518,7 @@ export function execGo(argv, files) {
             };
             go.run(result.instance);
         }).catch(reject).finally(() => {
+            window.process.chdir(origCwd);
             window.fs.removeWorkingDirectory_(wd);
         });
     })
