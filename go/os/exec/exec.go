@@ -108,27 +108,32 @@ func (c *Cmd) Run() error {
 	})
 	defer catch.Release()
 
+	var stdoutBuf []byte
+	var stderrBuf []byte
 	stdout := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		buf := make([]byte, args[0].Get("byteLength").Int())
 		js.CopyBytesToGo(buf, args[0])
-		if _, err := c.Stdout.Write(buf); err != nil {
-			return err.Error()
-		}
+		stdoutBuf = append(stdoutBuf, buf...)
 		return nil
 	})
 	defer stdout.Release()
 	stderr := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		buf := make([]byte, args[0].Get("byteLength").Int())
 		js.CopyBytesToGo(buf, args[0])
-		if _, err := c.Stderr.Write(buf); err != nil {
-			return err.Error()
-		}
+		stderrBuf = append(stderrBuf, buf...)
 		return nil
 	})
 	defer stderr.Release()
 
 	js.Global().Get("_goInternal").Call("execCommand", c.Path, args, env, stdout, stderr).Call("then", then).Call("catch", catch)
-	return <-ch
+	err := <-ch
+	if _, err := c.Stdout.Write(stdoutBuf); err != nil {
+		return err
+	}
+	if _, err := c.Stderr.Write(stderrBuf); err != nil {
+		return err
+	}
+	return err
 }
 
 func (c *Cmd) Start() error {
