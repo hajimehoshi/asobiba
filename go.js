@@ -495,8 +495,8 @@ import { stdfiles } from './stdfiles.js';
 
     const process = new Process();
     const fs = new FS(process);
-    window.fs = fs;
-    window.process = process;
+    globalThis.fs = fs;
+    globalThis.process = process;
 })();
 
 function randomToken() {
@@ -512,17 +512,19 @@ export function execGo(argv, files) {
     return new Promise((resolve, reject) => {
         // TODO: Detect collision.
         const wd = '/tmp/wd-' + randomToken();
-        window.fs.addWorkingDirectory_(wd, files);
-        const origCwd = window.process.cwd();
-        window.process.chdir(wd);
+        globalThis.fs.addWorkingDirectory_(wd, files);
+        const origCwd = globalThis.process.cwd();
+        globalThis.process.chdir(wd);
 
-        execCommand('go', argv).then(resolve).catch(reject).finally(() => {
-            window.fs.emptyDirectory_('/tmp');
+        globalThis._goInternal.execCommand('go', argv, {}).then(resolve).catch(reject).finally(() => {
+            globalThis.fs.emptyDirectory_('/tmp');
         });
     })
 }
 
-function execCommand(command, argv) {
+let goInternal = {};
+
+goInternal.execCommand = (command, argv, env) => {
     return new Promise((resolve, reject) => {
         // Polyfill
         let instantiateStreaming = WebAssembly.instantiateStreaming;
@@ -533,30 +535,38 @@ function execCommand(command, argv) {
             };
         }
 
-        const origCwd = window.process.cwd();
+        const origCwd = globalThis.process.cwd();
         const go = new Go();
+        const goversion = '1.14beta1'
         let wasm = ({
-            'go':      './bin/go1.14beta1.wasm',
-            'compile': './bin/compile1.14beta1.wasm',
-            'link':    './bin/link1.14beta1.wasm',
+            'go':                           `./bin/go${goversion}.wasm`,
+            '/go/pkg/tool/js_wasm/compile': `./bin/compile${goversion}.wasm`,
+            '/go/pkg/tool/js_wasm/link':    `./bin/link${goversion}.wasm`,
         })[command];
         if (!wasm) {
             reject('command not found: ' + command);
             return;
         }
 
-        instantiateStreaming(fetch(wasm), go.importObject).then(result => {
-            go.exit = resolve;
-            go.argv = go.argv.concat(argv || []);
-            go.env = {
+        env = {
+            ...{
                 TMPDIR:      '/tmp',
                 HOME:        '/root',
                 GOROOT:      '/go',
                 GO111MODULE: 'on',
-            };
+            },
+            ...env,
+        };
+
+        instantiateStreaming(fetch(wasm), go.importObject).then(result => {
+            go.exit = resolve;
+            go.argv = go.argv.concat(argv || []);
+            go.env = env;
             go.run(result.instance);
         }).catch(reject).finally(() => {
-            window.process.chdir(origCwd);
+            globalThis.process.chdir(origCwd);
         });
     })
 }
+
+globalThis._goInternal = goInternal;

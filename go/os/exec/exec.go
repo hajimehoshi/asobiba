@@ -1,3 +1,8 @@
+// Copyright 2020 Hajime Hoshi
+// SPDX-License-Identifier: Apache-2.0
+
+// The original license:
+//
 // Copyright 2009 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
@@ -8,16 +13,19 @@ package exec
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"strconv"
+	"strings"
 	"syscall"
+	"syscall/js"
 )
 
 var ErrNotFound = errors.New("executable file not found in $PATH")
 
 func LookPath(file string) (string, error) {
-	panic("exec: LookPath is not implemented")
+	return "", &Error{file, ErrNotFound}
 }
 
 type Cmd struct {
@@ -54,7 +62,52 @@ func (c *Cmd) Output() ([]byte, error) {
 }
 
 func (c *Cmd) Run() error {
-	panic("exec: (*Cmd).Run is not implemented")
+	if c.Dir != "" {
+		panic("exec: Dir is not supported")
+	}
+	if len(c.ExtraFiles) > 0 {
+		panic("exec: ExtraFiles is not supported")
+	}
+	if c.SysProcAttr != nil {
+		panic("exec: SysProcAttr is not supported")
+	}
+	if c.Process != nil {
+		panic("exec: Process is not supported")
+	}
+	if c.ProcessState != nil {
+		panic("exec: ProcessState is not supported")
+	}
+
+	var args []interface{}
+	for _, arg := range c.Args {
+		args = append(args, arg)
+	}
+
+	env := map[string]interface{}{}
+	for _, e := range c.Env {
+		n := strings.Index(e, "=")
+		if n < 0 {
+			return &Error{c.Path, fmt.Errorf("invalid env: %v", e)}
+		}
+		env[e[:n]] = e[n+1:]
+	}
+
+	ch := make(chan error, 1)
+	then := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		close(ch)
+		return nil
+	})
+	defer then.Release()
+	catch := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		ch <- &Error{c.Path, fmt.Errorf("js error: %v", args[0])}
+		close(ch)
+		return nil
+	})
+	defer catch.Release()
+
+	// TODO: Pass stdin, stdout, stderr
+	js.Global().Get("_goInternal").Call("execCommand", c.Path, args, env).Call("then", then).Call("catch", catch)
+	return <-ch
 }
 
 func (c *Cmd) Start() error {
@@ -74,7 +127,14 @@ func (c *Cmd) StdoutPipe() (io.ReadCloser, error) {
 }
 
 func (c *Cmd) String() string {
-	panic("exec: (*Cmd).String is not implemented")
+	// report the exact executable path (plus args)
+	b := new(strings.Builder)
+	b.WriteString(c.Path)
+	for _, a := range c.Args[1:] {
+		b.WriteByte(' ')
+		b.WriteString(a)
+	}
+	return b.String()
 }
 
 func (c *Cmd) Wait() error {
