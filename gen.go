@@ -6,27 +6,48 @@
 package main
 
 import (
+	"flag"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
+var flagTar = flag.String("tar", "", "tar file of Go binary")
+
 func main() {
+	flag.Parse()
+	if *flagTar == "" {
+		// TODO: This works only on macOS and Linux. Take care about other platforms.
+		fmt.Fprintf(os.Stderr, "-tar must be specified. Download from https://dl.google.com/go/go%s.%s-%s.tar.gz and use it.\n", goversion, runtime.GOOS, runtime.GOARCH)
+		os.Exit(1)
+	}
+
 	if err := run(); err != nil {
 		panic(err)
 	}
 }
 
 func run() error {
-	if err := genStdfiles(); err != nil {
+	tmp, err := ioutil.TempDir("", "playground-")
+	if err != nil {
 		return err
 	}
-	if err := genBins(); err != nil {
+	defer os.RemoveAll(tmp)
+
+	if err := prepareGo(tmp); err != nil {
+		return err
+	}
+	if err := genStdfiles(tmp); err != nil {
+		return err
+	}
+	if err := genBins(tmp); err != nil {
 		return err
 	}
 	return nil
@@ -34,13 +55,56 @@ func run() error {
 
 const (
 	goversion = "1.14beta1"
-	goname    = "go" + goversion
 )
 
-func stdfiles() (string, []string, error) {
+func prepareGo(tmp string) error {
+	const gotarfile = "go.tar.gz"
+
+	fmt.Printf("Copying %s\n", gotarfile)
+	
+	in, err := os.Open(*flagTar)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	gotar := filepath.Join(tmp, gotarfile)
+	f, err := os.Create(gotar)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if _, err := io.Copy(f, in); err != nil {
+		return err
+	}
+
+	fmt.Printf("Extracting %s\n", gotarfile)
+
+	cmd := exec.Command("tar", "-xzf", gotarfile)
+	cmd.Stderr = os.Stderr
+	cmd.Dir = tmp
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+
+	gobin := filepath.Join(tmp, "go", "bin", "go")
+	cmd = exec.Command(gobin, "version")
+	cmd.Stderr = os.Stderr
+	out, err := cmd.Output()
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Checking go version: %s\n", strings.TrimSpace(string(out)))
+
+	return nil
+}
+
+func stdfiles(tmp string) (string, []string, error) {
+	gobin := filepath.Join(tmp, "go", "bin", "go")
+
 	var src string
 	{
-		cmd := exec.Command(goname, "list", "-f", "{{.Dir}}", "runtime")
+		cmd := exec.Command(gobin, "list", "-f", "{{.Dir}}", "runtime")
 		cmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
 		cmd.Stderr = os.Stderr
 		out, err := cmd.Output()
@@ -50,7 +114,7 @@ func stdfiles() (string, []string, error) {
 		src = filepath.Join(strings.TrimSpace(string(out)), "..")
 	}
 
-	cmd := exec.Command(goname, "list", "-f", "dir: {{.Dir}}\n{{range .GoFiles}}file: {{.}}\n{{end}}{{range .SFiles}}file: {{.}}\n{{end}}", "std")
+	cmd := exec.Command(gobin, "list", "-f", "dir: {{.Dir}}\n{{range .GoFiles}}file: {{.}}\n{{end}}{{range .SFiles}}file: {{.}}\n{{end}}", "std")
 	cmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
 	cmd.Stderr = os.Stderr
 	out, err := cmd.Output()
@@ -79,8 +143,10 @@ func stdfiles() (string, []string, error) {
 	return src, files, nil
 }
 
-func genStdfiles() error {
-	src, fs, err := stdfiles()
+func genStdfiles(tmp string) error {
+	fmt.Printf("Generating stdfiles.js\n")
+
+	src, fs, err := stdfiles(tmp)
 	if err != nil {
 		return err
 	}
@@ -94,7 +160,7 @@ func genStdfiles() error {
 		contents[f] = base64.StdEncoding.EncodeToString(c)
 	}
 
-	f, err := os.OpenFile("stdfiles.js", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	f, err := os.Create("stdfiles.js")
 	if err != nil {
 		return err
 	}
@@ -114,7 +180,9 @@ func genStdfiles() error {
 	return nil
 }
 
-func genBins() error {
+func genBins(tmp string) error {
+	gobin := filepath.Join(tmp, "go", "bin", "go")
+
 	files := []struct {
 		Name string
 		Path string
@@ -133,7 +201,8 @@ func genBins() error {
 		},
 	}
 	for _, file := range files {
-		cmd := exec.Command(goname, "build", "-trimpath", "-o=bin/"+file.Name, file.Path)
+		fmt.Printf("Generating %s\n", file.Name)
+		cmd := exec.Command(gobin, "build", "-trimpath", "-o=bin/"+file.Name, file.Path)
 		cmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
