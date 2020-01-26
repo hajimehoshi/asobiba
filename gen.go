@@ -94,7 +94,7 @@ func genStdfiles() error {
 		contents[f] = base64.StdEncoding.EncodeToString(c)
 	}
 
-	f, err := os.OpenFile("stdfiles.js", os.O_WRONLY|os.O_CREATE, 0644)
+	f, err := os.OpenFile("stdfiles.js", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		return err
 	}
