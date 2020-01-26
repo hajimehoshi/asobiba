@@ -31,8 +31,8 @@ import { stdfiles } from './stdfiles.js';
         S_IXOTH:  0o0001,   // others have execute permission
     };
 
-    function enosys() {
-	const err = new Error('not implemented');
+    function enosys(name) {
+	const err = new Error(`${name} not implemented`);
 	err.code = 'ENOSYS';
 	return err;
     }
@@ -205,7 +205,7 @@ import { stdfiles } from './stdfiles.js';
         write(fd, buf, offset, length, position, callback) {
             if (offset !== 0 || length !== buf.length || position !== null) {
                 // TOOD: Implement this.
-                callback(enosys());
+                callback(enosys('write'));
                 return;
             }
             const n = this.writeSync(fd, buf);
@@ -248,11 +248,11 @@ import { stdfiles } from './stdfiles.js';
         }
 
 	lchown(path, uid, gid, callback) {
-            callback(null);
+            callback(enosys('lchown'));
         }
 
 	link(path, link, callback) {
-            callback(enosys());
+            callback(enosys('link'));
         }
 
 	lstat(path, callback) {
@@ -347,17 +347,15 @@ import { stdfiles } from './stdfiles.js';
         }
 
 	readlink(path, callback) {
-            callback(enosys());
+            callback(enosys('readlink'));
         }
 
 	rename(from, to, callback) {
-            // TODO: Implement this?
-            callback(enosys());
+            callback(enosys('rename'));
         }
 
 	rmdir(path, callback) {
-            // TODO: Implement this?
-            callback(enosys());
+            callback(enosys('rmdir'));
         }
 
 	stat(path, callback) {
@@ -366,21 +364,21 @@ import { stdfiles } from './stdfiles.js';
 
 	symlink(path, link, callback) {
             // TODO: Implement this?
-            callback(enosys());
+            callback(enosys('symlink'));
         }
 
 	truncate(path, length, callback) {
             // TODO: Implement this?
-            callback(enosys());
+            callback(enosys('truncate'));
         }
 
 	unlink(path, callback) {
-            // TODO: Mark the file removed and remove it later.
-            callback(null);
+            // TODO: Mark the file removed and remove it later?
+            callback(enosys('unlink'));
         }
 
 	utimes(path, atime, mtime, callback) {
-            callback(enosys());
+            callback(enosys('utime'));
         }
 
         stat_(path, callback) {
@@ -474,10 +472,10 @@ import { stdfiles } from './stdfiles.js';
 	getgid() { return -1; }
 	geteuid() { return -1; }
 	getegid() { return -1; }
-	getgroups() { throw enosys(); }
+	getgroups() { throw enosys('getgroups'); }
 	get pid() { return -1; }
 	get ppid() { -1; }
-	umask() { throw enosys(); }
+	umask() { throw enosys('umask'); }
 
         cwd() {
             return this.wd_;
