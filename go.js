@@ -504,7 +504,7 @@ export function execGo(argv, files) {
         const origCwd = globalThis.process.cwd();
         globalThis.process.chdir(wd);
 
-        globalThis._goInternal.execCommand('go', argv, {}, null, null).then(resolve).catch(reject).finally(() => {
+        globalThis._goInternal.execCommand('go', argv, {}, '', null, null).then(resolve).catch(reject).finally(() => {
             globalThis.fs.emptyDirectory_('/tmp');
         });
     })
@@ -558,7 +558,7 @@ class _GoInternal {
         }
     }
 
-    execCommand(command, argv, env, stdout, stderr) {
+    execCommand(command, argv, env, dir, stdout, stderr) {
         return new Promise((resolve, reject) => {
             // Polyfill
             let instantiateStreaming = WebAssembly.instantiateStreaming;
@@ -574,6 +574,9 @@ class _GoInternal {
             this.stdout_ = stdout;
             this.stderr_ = stderr;
             const origCwd = globalThis.process.cwd();
+            if (dir) {
+                globalThis.process.chdir(dir);
+            }
             const defer = () => {
                 globalThis.process.chdir(origCwd);
                 this.stdout_ = origStdout;
