@@ -1,3 +1,13 @@
 <p>hello</p>
 <script src="script.js" type="module" defer></script>
-<ebiten-player src="package main"></ebiten-playber>
+<ebiten-player></ebiten-playber>
+<script>
+  window.addEventListener('DOMContentLoaded', () => {
+      const player = document.querySelector('ebiten-player');
+      player.setAttribute('src', `package main
+
+func main() {
+}
+`)
+  });
+</script>

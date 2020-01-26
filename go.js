@@ -567,8 +567,13 @@ class _GoInternal {
             const origStderr = this.stderr_;
             this.stdout_ = stdout;
             this.stderr_ = stderr;
-
             const origCwd = globalThis.process.cwd();
+            const defer = () => {
+                this.stdout_ = origStdout;
+                this.stderr_ = origStderr;
+                globalThis.process.chdir(origCwd);
+            };
+
             const go = new Go();
             const goversion = '1.14beta1'
             let wasm = ({
@@ -592,14 +597,15 @@ class _GoInternal {
             };
 
             instantiateStreaming(fetch(wasm), go.importObject).then(result => {
-                go.exit = resolve;
                 go.argv = go.argv.concat(argv || []);
                 go.env = env;
-                go.run(result.instance);
-            }).catch(reject).finally(() => {
-                this.stdout_ = origStdout;
-                this.stderr_ = origStderr;
-                globalThis.process.chdir(origCwd);
+                go.run(result.instance).then(() => {
+                    defer();
+                    resolve();
+                }).catch((e) => {
+                    defer();
+                    reject(e);
+                });
             });
         })
     }
