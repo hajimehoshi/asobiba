@@ -159,7 +159,7 @@ func goroot(tmp string) (string, error) {
 func stdfiles(tmp string) ([]string, error) {
 	gobin := filepath.Join(tmp, "go", "bin", "go")
 
-	cmd := exec.Command(gobin, "list", "-f", "dir: {{.Dir}}\n{{range .GoFiles}}file: {{.}}\n{{end}}{{range .SFiles}}file: {{.}}\n{{end}}", "std")
+	cmd := exec.Command(gobin, "list", "-f", "dir: {{.Dir}}\n{{range .GoFiles}}file: {{.}}\n{{end}}{{range .SFiles}}file: {{.}}\n{{end}}{{range .HFiles}}file: {{.}}\n{{end}}", "std")
 	cmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
 	cmd.Stderr = os.Stderr
 	out, err := cmd.Output()
