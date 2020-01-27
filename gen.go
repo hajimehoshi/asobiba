@@ -143,27 +143,33 @@ func replaceFiles(tmp string) error {
 	return nil
 }
 
-func stdfiles(tmp string) (string, []string, error) {
+func goroot(tmp string) (string, error) {
 	gobin := filepath.Join(tmp, "go", "bin", "go")
 
-	var src string
-	{
-		cmd := exec.Command(gobin, "list", "-f", "{{.Dir}}", "runtime")
-		cmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
-		cmd.Stderr = os.Stderr
-		out, err := cmd.Output()
-		if err != nil {
-			return "", nil, err
-		}
-		src = filepath.Join(strings.TrimSpace(string(out)), "..")
+	cmd := exec.Command(gobin, "env", "GOROOT")
+	cmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
+	cmd.Stderr = os.Stderr
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
 	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+func stdfiles(tmp string) ([]string, error) {
+	gobin := filepath.Join(tmp, "go", "bin", "go")
 
 	cmd := exec.Command(gobin, "list", "-f", "dir: {{.Dir}}\n{{range .GoFiles}}file: {{.}}\n{{end}}{{range .SFiles}}file: {{.}}\n{{end}}", "std")
 	cmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
 	cmd.Stderr = os.Stderr
 	out, err := cmd.Output()
 	if err != nil {
-		return "", nil, err
+		return nil, err
+	}
+
+	gr, err := goroot(tmp)
+	if err != nil {
+		return nil, err
 	}
 
 	var files []string
@@ -177,27 +183,32 @@ func stdfiles(tmp string) (string, []string, error) {
 		}
 		if strings.HasPrefix(line, prefile) {
 			file := strings.TrimSpace(line[len(prefile):])
-			rel, err := filepath.Rel(src, filepath.Join(dir, file))
+			rel, err := filepath.Rel(gr, filepath.Join(dir, file))
 			if err != nil {
-				return "", nil, err
+				return nil, err
 			}
 			files = append(files, rel)
 		}
 	}
-	return src, files, nil
+	return files, nil
 }
 
 func genStdfiles(tmp string) error {
 	fmt.Printf("Generating stdfiles.json\n")
 
-	src, fs, err := stdfiles(tmp)
+	fs, err := stdfiles(tmp)
+	if err != nil {
+		return err
+	}
+
+	gr, err := goroot(tmp)
 	if err != nil {
 		return err
 	}
 
 	contents := map[string]string{}
 	for _, f := range fs {
-		c, err := ioutil.ReadFile(filepath.Join(src, f))
+		c, err := ioutil.ReadFile(filepath.Join(gr, f))
 		if err != nil {
 			return err
 		}

@@ -181,7 +181,7 @@ class FS {
         const encoder = new TextEncoder();
         let stdfiles = await (await fetch('./stdfiles.json')).json();
         for (const filename of Object.keys(stdfiles)) {
-            const fullfn = goroot + '/src/' + filename;
+            const fullfn = goroot + '/' + filename;
             const dir = fullfn.substring(0, fullfn.lastIndexOf('/'));
             this.mkdirp_(dir);
             this.files_.set(fullfn, {
