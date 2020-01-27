@@ -266,10 +266,14 @@ class FS {
     }
 
     write(fd, buf, offset, length, position, callback) {
-        if (offset !== 0 || length !== buf.length || position !== null) {
+        if (offset !== 0 || length !== buf.length) {
             // TOOD: Implement this.
             callback(enosys('write'));
             return;
+        }
+        if (position !== null) {
+            const handle = this.fds_.get(fd);
+            handle.offset = position;
         }
         const n = this.writeSync(fd, buf);
         callback(null, n);
