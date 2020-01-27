@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import './wasm_exec.js';
+
+// TODO: This should be a plain JSON file.
 import { stdfiles } from './stdfiles.js';
 
 (() => {
@@ -383,7 +385,12 @@ import { stdfiles } from './stdfiles.js';
         }
 
 	utimes(path, atime, mtime, callback) {
-            callback(enosys('utime'));
+            path = absPath(this.ps_.cwd(), path);
+            const file = this.files_.get(path);
+            file.atime = atime;
+            file.mtime = mtime;
+            this.files_.set(path, file);
+            callback(null);
         }
 
         stat_(path, callback) {
@@ -401,6 +408,14 @@ import { stdfiles } from './stdfiles.js';
             } else {
                 mode |= statModes.S_IFREG;
             }
+            let atime = 0;
+            let mtime = 0;
+            if (file.atime) {
+                atime = file.atime * 1000;
+            }
+            if (file.mtime) {
+                mtime = file.mtime * 1000;
+            }
             callback(null, {
                 mode:    mode,
                 dev:     0,
@@ -412,8 +427,8 @@ import { stdfiles } from './stdfiles.js';
                 size:    0,
                 blksize: 0,
                 blocks:  0,
-                atimeMs: 0,
-                mtimeMs: 0,
+                atimeMs: atime,
+                mtimeMs: mtime,
                 ctimeMs: 0,
                 isDirectory: () => !!(mode & statModes.S_IFDIR),
             });
