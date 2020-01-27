@@ -161,7 +161,7 @@ class FS {
             directory: true,
         });
         this.files_.set('/dev/null', {
-            directory: true,
+            characterDevice: true,
         });
         this.files_.set('/root', {
             directory: true,
@@ -202,7 +202,7 @@ class FS {
         this.files_.set(goroot + '/pkg/tool/js_wasm/asm', {
             content: new Uint8Array(0),
         });
-        this.files_.set(goroot + '/pkg/tool/js_wasm/buildid', {
+        this.files_.set(goroot + '/pkg/tool/js_wasm/buildid', { // Needed with -x
             content: new Uint8Array(0),
         });
         this.files_.set(goroot + '/pkg/tool/js_wasm/compile', {
@@ -225,6 +225,20 @@ class FS {
     }
 
     writeSync(fd, buf) {
+        const handle = this.fds_.get(fd);
+        let position = 0;
+        // handle can be null when fd is 1 or 2.
+        if (handle) {
+            position = handle.offset;
+        }
+        const n = this.writeSyncAt_(fd, buf, position);
+        if (handle && !this.files_.get(handle.path).characterDevice) {
+            handle.offset += n;
+        }
+        return n;
+    }
+
+    writeSyncAt_(fd, buf, position) {
         if (fd === 1) {
             globalThis.goInternal_.writeToStdout(buf);
             return buf.length;
@@ -240,7 +254,7 @@ class FS {
         }
         const file = this.files_.get(handle.path);
         let content = file.content;
-        let finalLength = handle.offset + buf.length;
+        let finalLength = position + buf.length;
 
         // Extend the size if necessary
         let n = content.buffer.byteLength;
@@ -258,9 +272,7 @@ class FS {
             content = new Uint8Array(content.buffer, 0, finalLength);
         }
 
-        content.set(buf, handle.offset)
-
-        handle.offset += buf.length;
+        content.set(buf, position)
 
         file.content = content;
         this.files_.set(handle.path, file);
@@ -274,11 +286,12 @@ class FS {
             callback(enosys('write'));
             return;
         }
+        let n = 0;
         if (position !== null) {
-            const handle = this.fds_.get(fd);
-            handle.offset = position;
+            n = this.writeSyncAt_(fd, buf, position);
+        } else {
+            n = this.writeSync(fd, buf);
         }
-        const n = this.writeSync(fd, buf);
         callback(null, n);
     }
 
