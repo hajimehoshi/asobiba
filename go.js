@@ -3,7 +3,7 @@
 
 function enosys(name) {
     const msg = `${name} not implemented`;
-    // console.error(msg);
+    console.error(msg);
     const err = new Error(msg);
     err.code = 'ENOSYS';
     return err;
@@ -28,6 +28,16 @@ class Storage {
 
     delete(path) {
         this.storage_.delete(path);
+    }
+
+    hasChildren(dir) {
+        const result = [];
+        for (const key of this.storage_.keys()) {
+            if (key.startsWith(dir + '/')) {
+                return true;
+            }
+        }
+        return false;
     }
 
     childPaths(dir) {
@@ -410,7 +420,29 @@ class FS {
     }
 
     rmdir(path, callback) {
-        callback(enosys('rmdir'));
+        // TODO: What if there exists a file handler to the directory?
+        path = FS.absPath(this.ps_.cwd(), path);
+        const file = this.files_.get(path);
+        if (!file) {
+            const err = new Error('no such file or directory');
+            err.code = 'ENOENT';
+            callback(err);
+            return;
+        }
+        if (!file.directory) {
+            const err = new Error('not a directory');
+            err.code = 'ENOTDIR';
+            callback(err);
+            return;
+        }
+        if (this.files_.hasChildren(path)) {
+            const err = new Error('directory not empty');
+            err.code = 'ENOTEMPTY';
+            callback(err);
+            return;
+        }
+        this.files_.delete(path);
+        callback(null);
     }
 
     stat(path, callback) {
@@ -428,8 +460,23 @@ class FS {
     }
 
     unlink(path, callback) {
-        // TODO: Mark the file removed and remove it later?
-        callback(enosys('unlink'));
+        // TODO: What if there exists a file handler to the file?
+        path = FS.absPath(this.ps_.cwd(), path);
+        const file = this.files_.get(path);
+        if (!file) {
+            const err = new Error('no such file or directory');
+            err.code = 'ENOENT';
+            callback(err);
+            return;
+        }
+        if (file.directory) {
+            const err = new Error('is a directory');
+            err.code = 'EISDIR';
+            callback(err);
+            return;
+        }
+        this.files_.delete(path);
+        callback(null);
     }
 
     utimes(path, atime, mtime, callback) {
