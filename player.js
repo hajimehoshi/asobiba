@@ -8,8 +8,20 @@ window.addEventListener('message', (e) => {
 
     const worker = new Worker('./go.js');
     worker.addEventListener('message', e => {
-        // TODO: Implement this.
-        console.log(e);
+        // TODO: Implement stdout/stderr.
+        let data = e.data;
+        switch (data.type) {
+        case 'debug':
+            const a = document.createElement('a');
+            const blob = new Blob([data.body], {type: 'application/octet-stream'});
+            a.href = URL.createObjectURL(blob);
+            a.setAttribute('download', data.name);
+            a.click();
+            break;
+        default:
+            console.error(`not implemented ${data.type}`);
+            break;
+        }
     });
     worker.postMessage({
         command: ['go', 'build', '-v', 'main.go'],
