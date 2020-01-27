@@ -1,8 +1,6 @@
 // Copyright 2020 Hajime Hoshi
 // SPDX-License-Identifier: Apache-2.0
 
-import './wasm_exec.js';
-
 function enosys(name) {
     const msg = `${name} not implemented`;
     // console.error(msg);
@@ -669,9 +667,7 @@ class _GoInternal {
     }
 }
 
-globalThis._goInternal = new _GoInternal();
-
-export function execGo(argv, files) {
+function execGo(argv, files) {
     function randomToken() {
         let result = '';
         const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -695,3 +691,21 @@ export function execGo(argv, files) {
         });
     })
 }
+
+addEventListener('message', async (e) => {
+    // JavaScript module in a dedicated worker is not supported in Chrome 79.
+    // Fetch and eval the script instead.
+
+    // geval is eval with the global scope.
+    const geval = eval;
+    geval(await (await fetch('./wasm_exec.js')).text());
+    globalThis._goInternal = new _GoInternal();
+
+    const cmd = e.data.command[0];
+    switch (cmd) {
+    case 'go':
+        await execGo(e.data.command.slice(1), e.data.files);
+    default:
+        throw new Error(`command ${cmd} not supported`);
+    }
+});
