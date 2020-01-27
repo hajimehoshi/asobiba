@@ -421,7 +421,6 @@ class FS {
     read(fd, buffer, offset, length, position, callback) {
         let n = 0;
         if (position !== null) {
-            console.log(fd, position);
             n = this.readAt_(fd, buffer, offset, length, position);
         } else {
             const handle = this.fds_.get(fd);
