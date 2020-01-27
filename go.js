@@ -406,7 +406,7 @@ class FS {
         const file = this.files_.get(handle.path);
         const content = file.content;
         let n = length;
-        if (position + length > content.byteLength) {
+        if (n > content.byteLength - position) {
             n = content.byteLength - position;
         }
         if (n > buffer.length - offset) {
