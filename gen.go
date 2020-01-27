@@ -196,16 +196,15 @@ func stdfiles(tmp string) ([]string, error) {
 func genStdfiles(tmp string) error {
 	fmt.Printf("Generating stdfiles.json\n")
 
+	// Add $GOROOT/src
 	fs, err := stdfiles(tmp)
 	if err != nil {
 		return err
 	}
-
 	gr, err := goroot(tmp)
 	if err != nil {
 		return err
 	}
-
 	contents := map[string]string{}
 	for _, f := range fs {
 		c, err := ioutil.ReadFile(filepath.Join(gr, f))
@@ -213,6 +212,28 @@ func genStdfiles(tmp string) error {
 			return err
 		}
 		contents[f] = base64.StdEncoding.EncodeToString(c)
+	}
+
+	// Add $GOROOT/pkg/include
+	if err := filepath.Walk(filepath.Join(gr, "pkg", "include"), func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		rel, err := filepath.Rel(gr, path)
+		if err != nil {
+			return err
+		}
+		c, err := ioutil.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		contents[rel] = base64.StdEncoding.EncodeToString(c)
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	f, err := os.Create("stdfiles.json")
