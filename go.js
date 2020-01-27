@@ -202,6 +202,9 @@ class FS {
         this.files_.set(goroot + '/pkg/tool/js_wasm/asm', {
             content: new Uint8Array(0),
         });
+        this.files_.set(goroot + '/pkg/tool/js_wasm/buildid', {
+            content: new Uint8Array(0),
+        });
         this.files_.set(goroot + '/pkg/tool/js_wasm/compile', {
             content: new Uint8Array(0),
         });
@@ -693,6 +696,7 @@ class GoInternal {
             let wasm = ({
                 'go':                           `./bin/go${goversion}.wasm`,
                 '/go/pkg/tool/js_wasm/asm':     `./bin/asm${goversion}.wasm`,
+                '/go/pkg/tool/js_wasm/buildid': `./bin/buildid${goversion}.wasm`,
                 '/go/pkg/tool/js_wasm/compile': `./bin/compile${goversion}.wasm`,
                 '/go/pkg/tool/js_wasm/link':    `./bin/link${goversion}.wasm`,
             })[command];
@@ -762,6 +766,7 @@ addEventListener('message', async (e) => {
     switch (cmd) {
     case 'go':
         await globalThis.goInternal_.execGo(e.data.command.slice(1), e.data.files);
+        break;
     default:
         throw new Error(`command ${cmd} not supported`);
     }

@@ -12,7 +12,7 @@ window.addEventListener('message', (e) => {
         console.log(e);
     });
     worker.postMessage({
-        command: ['go', 'build', 'main.go'],
+        command: ['go', 'build', '-x', 'main.go'],
         files: {
             'main.go': data,
         }
