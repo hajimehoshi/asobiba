@@ -213,11 +213,11 @@ class FS {
 
     writeSync(fd, buf) {
         if (fd === 1) {
-            globalThis._goInternal.writeToStdout(buf);
+            globalThis.goInternal_.writeToStdout(buf);
             return buf.length;
         }
         if (fd === 2) {
-            globalThis._goInternal.writeToStderr(buf);
+            globalThis.goInternal_.writeToStderr(buf);
             return buf.length;
         }
 
@@ -543,7 +543,7 @@ class Process {
     }
 }
 
-class _GoInternal {
+class GoInternal {
     constructor() {
         this.initialized_ = false;
         this.stdout_ = null;
@@ -665,10 +665,8 @@ class _GoInternal {
             });
         })
     }
-}
 
-function execGo(argv, files) {
-    function randomToken() {
+    static randomToken_() {
         let result = '';
         const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
         for (let i = 0; i < 12; i++) {
@@ -677,19 +675,21 @@ function execGo(argv, files) {
         return result;
     }
 
-    return new Promise(async (resolve, reject) => {
-        await globalThis._goInternal.initializeGlobalVariablesIfNeeded();
+    execGo(argv, files) {
+        return new Promise(async (resolve, reject) => {
+            await this.initializeGlobalVariablesIfNeeded();
 
-        // TODO: Detect collision.
-        const wd = '/tmp/wd-' + randomToken();
-        globalThis.fs.addWorkingDir_(wd, files);
-        const origCwd = globalThis.process.cwd();
-        globalThis.process.chdir(wd);
+            // TODO: Detect collision.
+            const wd = '/tmp/wd-' + GoInternal.randomToken_();
+            globalThis.fs.addWorkingDir_(wd, files);
+            const origCwd = globalThis.process.cwd();
+            globalThis.process.chdir(wd);
 
-        globalThis._goInternal.execCommand('go', argv, {}, '', null, null).then(resolve).catch(reject).finally(() => {
-            globalThis.fs.emptyDir_('/tmp');
-        });
-    })
+            this.execCommand('go', argv, {}, '', null, null).then(resolve).catch(reject).finally(() => {
+                globalThis.fs.emptyDir_('/tmp');
+            });
+        })
+    }
 }
 
 addEventListener('message', async (e) => {
@@ -699,12 +699,12 @@ addEventListener('message', async (e) => {
     // geval is eval with the global scope.
     const geval = eval;
     geval(await (await fetch('./wasm_exec.js')).text());
-    globalThis._goInternal = new _GoInternal();
+    globalThis.goInternal_ = new GoInternal();
 
     const cmd = e.data.command[0];
     switch (cmd) {
     case 'go':
-        await execGo(e.data.command.slice(1), e.data.files);
+        await globalThis.goInternal_.execGo(e.data.command.slice(1), e.data.files);
     default:
         throw new Error(`command ${cmd} not supported`);
     }
