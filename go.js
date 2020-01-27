@@ -11,6 +11,53 @@ function enosys(name) {
     return err;
 }
 
+class Storage {
+    constructor() {
+        this.storage_ = new Map();
+    }
+
+    has(path) {
+        return this.storage_.has(path);
+    }
+
+    get(path) {
+        return this.storage_.get(path);
+    }
+
+    set(path, value) {
+        this.storage_.set(path, value);
+    }
+
+    delete(path) {
+        this.storage_.delete(path);
+    }
+
+    childPaths(dir) {
+        const result = [];
+        for (const key of this.storage_.keys()) {
+            if (key === dir)
+                continue;
+            if (!key.startsWith(dir))
+                continue;
+            const filename = key.substring(dir.length+1);
+            if (filename.indexOf('/') >= 0)
+                continue;
+            result.push(filename);
+        }
+        return result;
+    }
+
+    emptyDir(dir) {
+        for (const key of this.storage_.keys()) {
+            if (key === dir)
+                continue;
+            if (!key.startsWith(dir))
+                continue;
+            this.storage_.delete(key);
+        }
+    }
+}
+
 class FS {
     static get statModes() {
         return {
@@ -89,7 +136,7 @@ class FS {
 
     constructor(ps) {
         // TODO: What about using localStorage except for /tmp?
-        this.files_ = new Map();
+        this.files_ = new Storage();
         this.fds_ = new Map();
         this.ps_ = ps;
         this.nextFd_ = 1000;
@@ -455,21 +502,10 @@ class FS {
     }
 
     filenamesAt_(dir) {
-        const result = [];
-        for (const key of this.files_.keys()) {
-            if (key === dir)
-                continue;
-            if (!key.startsWith(dir))
-                continue;
-            const filename = key.substring(dir.length+1);
-            if (filename.indexOf('/') >= 0)
-                continue;
-            result.push(filename);
-        }
-        return result;
+        return this.files_.childPaths(dir);
     }
 
-    addWorkingDirectory_(dir, files) {
+    addWorkingDir_(dir, files) {
         this.mkdirp_(dir)
         // TODO: Consider the case when the files include directories.
         for (const filename of Object.keys(files)) {
@@ -481,8 +517,8 @@ class FS {
         }
     }
 
-    emptyDirectory_(dir) {
-        // TODO: Implement this
+    emptyDir_(dir) {
+        this.files_.emptyDir(dir);
     }
 }
 
@@ -650,12 +686,12 @@ export function execGo(argv, files) {
 
         // TODO: Detect collision.
         const wd = '/tmp/wd-' + randomToken();
-        globalThis.fs.addWorkingDirectory_(wd, files);
+        globalThis.fs.addWorkingDir_(wd, files);
         const origCwd = globalThis.process.cwd();
         globalThis.process.chdir(wd);
 
         globalThis._goInternal.execCommand('go', argv, {}, '', null, null).then(resolve).catch(reject).finally(() => {
-            globalThis.fs.emptyDirectory_('/tmp');
+            globalThis.fs.emptyDir_('/tmp');
         });
     })
 }
