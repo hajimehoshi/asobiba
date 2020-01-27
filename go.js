@@ -238,22 +238,22 @@ class FS {
     writeSyncAt_(fd, buf, position) {
         if (fd === 1) {
             globalThis.goInternal_.writeToStdout(buf);
-            return buf.length;
+            return buf.byteLength;
         }
         if (fd === 2) {
             globalThis.goInternal_.writeToStderr(buf);
-            return buf.length;
+            return buf.byteLength;
         }
 
         const handle = this.fds_.get(fd);
         if (handle.path === '/dev/null') {
-            return buf.length;
+            return buf.byteLength;
         }
         const file = this.files_.get(handle.path);
         let content = file.content;
         let finalLength = content.byteLength;
-        if (finalLength < position + buf.length) {
-            finalLength = position + buf.length;
+        if (finalLength < position + buf.byteLength) {
+            finalLength = position + buf.byteLength;
         }
 
         // Extend the size if necessary
@@ -277,11 +277,11 @@ class FS {
         file.content = content;
         this.files_.set(handle.path, file);
 
-        return buf.length;
+        return buf.byteLength;
     }
 
     write(fd, buf, offset, length, position, callback) {
-        if (offset !== 0 || length !== buf.length) {
+        if (offset !== 0 || length !== buf.byteLength) {
             // TOOD: Implement this.
             callback(enosys('write'));
             return;
@@ -325,7 +325,8 @@ class FS {
     }
 
     ftruncate(fd, length, callback) {
-        const file = this.files_.get(this.fds_.get(fd).path);
+        const handle = this.fds_.get(fd);
+        const file = this.files_.get(handle.path);
         file.content = new Uint8Array(file.content.buffer, 0, length);
         this.files_.set(this.fds_.get(fd).path, file);
         callback(null);
@@ -409,8 +410,8 @@ class FS {
         if (n > content.byteLength - position) {
             n = content.byteLength - position;
         }
-        if (n > buffer.length - offset) {
-            n = buffer.length - offset;
+        if (n > buffer.byteLength - offset) {
+            n = buffer.byteLength - offset;
         }
         for (let i = 0; i < n; i++) {
             buffer[offset+i] = content[position+i];
