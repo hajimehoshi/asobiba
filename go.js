@@ -563,6 +563,10 @@ class FS {
         if (file.mtime) {
             mtime = file.mtime * 1000;
         }
+        let size = 0;
+        if (!file.directory && !file.characterDevice) {
+            size = file.content.byteLength;
+        }
         callback(null, {
             mode:    mode,
             dev:     0,
@@ -571,7 +575,7 @@ class FS {
             uid:     0,
             gid:     0,
             rdev:    0,
-            size:    0,
+            size:    size,
             blksize: 0,
             blocks:  0,
             atimeMs: atime,
