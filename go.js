@@ -693,6 +693,11 @@ class GoInternal {
 }
 
 addEventListener('message', async (e) => {
+    if (globalThis.started_) {
+        throw new Error('go.js can be called only once');
+    }
+    globalThis.started_ = true;
+
     // JavaScript module in a dedicated worker is not supported in Chrome 79.
     // Fetch and eval the script instead.
 
