@@ -503,18 +503,6 @@ class FS {
         return this.files_.childPaths(dir);
     }
 
-    addWorkingDir_(dir, files) {
-        this.mkdirp_(dir)
-        // TODO: Consider the case when the files include directories.
-        for (const filename of Object.keys(files)) {
-            const path = dir + '/' + filename;
-            this.files_.set(path, {
-                content:   files[filename],
-                directory: false,
-            })
-        }
-    }
-
     emptyDir_(dir) {
         this.files_.emptyDir(dir);
     }
@@ -666,24 +654,17 @@ class GoInternal {
         })
     }
 
-    static randomToken_() {
-        let result = '';
-        const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-        for (let i = 0; i < 12; i++) {
-            result += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        return result;
-    }
-
     execGo(argv, files) {
         return new Promise(async (resolve, reject) => {
             await this.initializeGlobalVariablesIfNeeded();
 
-            // TODO: Detect collision.
-            const wd = '/tmp/wd-' + GoInternal.randomToken_();
-            globalThis.fs.addWorkingDir_(wd, files);
-            const origCwd = globalThis.process.cwd();
-            globalThis.process.chdir(wd);
+            for (const filename of Object.keys(files)) {
+                const path = '/root/' + filename
+                globalThis.fs.files_.set(path, {
+                    content: files[filename],
+                })
+            }
+            globalThis.process.chdir('/root');
 
             this.execCommand('go', argv, {}, '', null, null).then(resolve).catch(reject).finally(() => {
                 globalThis.fs.emptyDir_('/tmp');
