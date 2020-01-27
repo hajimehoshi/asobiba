@@ -420,7 +420,27 @@ class FS {
     }
 
     rename(from, to, callback) {
-        callback(enosys('rename'));
+        from = FS.absPath(this.ps_.cwd(), from);
+        to = FS.absPath(this.ps_.cwd(), to);
+        const fromFile = this.files_.get(from)
+        const toFile = this.files_.get(from)
+        if (!fromFile) {
+            const err = new Error('no such file or directory');
+            err.code = 'ENOENT';
+            callback(err);
+            return;
+        }
+        if (fromFile.directory) {
+            callback(enosys('rename'));
+            return;
+        }
+        if (toFile.directory) {
+            callback(enosys('rename'));
+            return;
+        }
+        this.files_.set(to, fromFile)
+        this.files_.delete(from)
+        callback(null);
     }
 
     rmdir(path, callback) {
