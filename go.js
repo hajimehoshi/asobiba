@@ -401,27 +401,40 @@ class FS {
         callback(null, fd);
     }
 
-    read(fd, buffer, offset, length, position, callback) {
+    readAt_(fd, buffer, offset, length, position) {
         const handle = this.fds_.get(fd);
-        if (position !== null) {
-            handle.offset = position;
-        }
-
         const file = this.files_.get(handle.path);
         const content = file.content;
         let n = length;
-        if (handle.offset + length > content.byteLength) {
-            n = content.byteLength - handle.offset;
+        if (position + length > content.byteLength) {
+            n = content.byteLength - position;
         }
         if (n > buffer.length - offset) {
             n = buffer.length - offset;
         }
-
         for (let i = 0; i < n; i++) {
-            buffer[offset+i] = content[handle.offset+i];
+            buffer[offset+i] = content[position+i];
         }
+        return n;
+    }
 
-        handle.offset += n;
+    read(fd, buffer, offset, length, position, callback) {
+        let n = 0;
+        if (position !== null) {
+            console.log(fd, position);
+            n = this.readAt_(fd, buffer, offset, length, position);
+        } else {
+            const handle = this.fds_.get(fd);
+            // handle can be null when fd is 0.
+            let position = 0;
+            if (handle) {
+                position = handle.offset;
+            }
+            n = this.readAt_(fd, buffer, offset, length, position);
+            if (handle && !this.files_.get(handle.path).characterDevice) {
+                handle.offset += n;
+            }
+        }
         callback(null, n);
     }
 
