@@ -276,6 +276,10 @@ func genBins(tmp string) error {
 			Name: "link" + goversion + ".wasm",
 			Path: "cmd/link",
 		},
+		{
+			Name: "pack" + goversion + ".wasm",
+			Path: "cmd/pack",
+		},
 	}
 	for _, file := range files {
 		fmt.Printf("Generating %s\n", file.Name)

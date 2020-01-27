@@ -95,6 +95,10 @@ class FS {
         };
     }
 
+    static tools() {
+        return ['asm', 'buildid', 'compile', 'link', 'pack'];
+    }
+
     static absPath(cwd, path) {
         const removeLastSlash = (path) => {
             if (path[path.length-1] === '/' && path !== '/') {
@@ -199,18 +203,11 @@ class FS {
         this.files_.set(goroot + '/pkg/tool/js_wasm', {
             directory: true,
         });
-        this.files_.set(goroot + '/pkg/tool/js_wasm/asm', {
-            content: new Uint8Array(0),
-        });
-        this.files_.set(goroot + '/pkg/tool/js_wasm/buildid', { // Needed with -x
-            content: new Uint8Array(0),
-        });
-        this.files_.set(goroot + '/pkg/tool/js_wasm/compile', {
-            content: new Uint8Array(0),
-        });
-        this.files_.set(goroot + '/pkg/tool/js_wasm/link', {
-            content: new Uint8Array(0),
-        });
+        for (const tool of FS.tools()) {
+            this.files_.set(goroot + `/pkg/tool/js_wasm/${tool}`, {
+                content: new Uint8Array(0),
+            });
+        }
     }
 
     get constants() {
@@ -721,18 +718,16 @@ class GoInternal {
 
             const go = new Go();
             const goversion = '1.14beta1'
-            let wasm = ({
-                'go':                           `./bin/go${goversion}.wasm`,
-                '/go/pkg/tool/js_wasm/asm':     `./bin/asm${goversion}.wasm`,
-                '/go/pkg/tool/js_wasm/buildid': `./bin/buildid${goversion}.wasm`,
-                '/go/pkg/tool/js_wasm/compile': `./bin/compile${goversion}.wasm`,
-                '/go/pkg/tool/js_wasm/link':    `./bin/link${goversion}.wasm`,
-            })[command];
-            if (!wasm) {
+            const commandName = command.split('/').pop()
+            let wasm = null;
+            if (command === 'go') {
+                wasm = `./bin/go${goversion}.wasm`;
+            } else if (command === `/go/pkg/tool/js_wasm/${commandName}` && FS.tools().includes(commandName)) {
+                wasm = `./bin/${commandName}${goversion}.wasm`;
+            } else {
                 reject('command not found: ' + command);
                 return;
             }
-            const commandName = command.split('/').pop()
 
             const defaultEnv = {
                 TMPDIR:      '/tmp',
