@@ -254,7 +254,10 @@ class FS {
         }
         const file = this.files_.get(handle.path);
         let content = file.content;
-        let finalLength = position + buf.length;
+        let finalLength = content.byteLength;
+        if (finalLength < position + buf.length) {
+            finalLength = position + buf.length;
+        }
 
         // Extend the size if necessary
         let n = content.buffer.byteLength;
