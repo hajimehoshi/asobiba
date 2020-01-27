@@ -175,7 +175,8 @@ import { stdfiles } from './stdfiles.js';
             if (handle.path === '/dev/null') {
                 return buf.length;
             }
-            let content = this.files_.get(handle.path).content;
+            const file = this.files_.get(handle.path);
+            let content = file.content;
             let finalLength = handle.offset + buf.length;
 
             // Extend the size if necessary
@@ -197,7 +198,9 @@ import { stdfiles } from './stdfiles.js';
             content.set(buf, handle.offset)
 
             handle.offset += buf.length;
-            this.files_.get(handle.path).content = content;
+
+            file.content = content;
+            this.files_.set(handle.path, file);
 
             return buf.length;
         }
@@ -244,6 +247,7 @@ import { stdfiles } from './stdfiles.js';
 	ftruncate(fd, length, callback) {
             const file = this.files_.get(this.fds_.get(fd).path);
             file.content = new Uint8Array(file.content.buffer, 0, length);
+            this.files_.set(this.fds_.get(fd).path, file);
             callback(null);
         }
 
@@ -323,7 +327,8 @@ import { stdfiles } from './stdfiles.js';
                 handle.offset = position;
             }
 
-            const content = this.files_.get(handle.path).content;
+            const file = this.files_.get(handle.path);
+            const content = file.content;
             let n = length;
             if (handle.offset + length > content.byteLength) {
                 n = content.byteLength - handle.offset;
