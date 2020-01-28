@@ -96,7 +96,14 @@ func (c *Cmd) Run() error {
 	})
 	defer then.Release()
 	catch := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		ch <- &Error{c.Path, fmt.Errorf("js error: %v", args[0])}
+		v := args[0]
+		var err error
+		if v.InstanceOf(js.Global().Get("Error")) {
+			err = js.Error{v}
+		} else {
+			err = fmt.Errorf("JavaScript error: %v", v)
+		}
+		ch <- &Error{c.Path, err}
 		close(ch)
 		return nil
 	})

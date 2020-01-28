@@ -743,7 +743,7 @@ class GoInternal {
             } else if (command === `/go/pkg/tool/js_wasm/${commandName}` && FS.tools().includes(commandName)) {
                 wasm = `./bin/${commandName}${goversion}.wasm`;
             } else {
-                reject('command not found: ' + command);
+                reject(new Error('command not found: ' + command));
                 return;
             }
 
