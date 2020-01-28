@@ -180,6 +180,7 @@ class FS {
         this.files_ = new Storage();
         this.fds_ = new Map();
         this.ps_ = ps;
+        this.writeSyncBuf_ = "";
     }
     
     async initializeFiles() {
@@ -247,21 +248,19 @@ class FS {
         };
     }
 
+    // writeSync is called only from runtime.wasmSync. Use the default implementation.
     writeSync(fd, buf) {
-        const handle = this.fds_.get(fd);
-        let position = 0;
-        // handle can be null when fd is 1 or 2.
-        if (handle) {
-            position = handle.offset;
+	const decoder = new TextDecoder("utf-8");
+        this.writeSyncBuf_ += decoder.decode(buf);
+        const nl = this.writeSyncBuf_.lastIndexOf("\n");
+        if (nl != -1) {
+            console.log(this.writeSyncBuf_.substr(0, nl));
+            this.writeSyncBuf_ = this.writeSyncBuf_.substr(nl + 1);
         }
-        const n = this.pwriteSync_(fd, buf, position);
-        if (handle && !handle.isCharacterDevice()) {
-            handle.offset += n;
-        }
-        return n;
+        return buf.length;
     }
 
-    pwriteSync_(fd, buf, position) {
+    pwrite_(fd, buf, position) {
         if (fd === 1) {
             globalThis.goInternal_.writeToStdout(buf);
             return buf.byteLength;
@@ -319,9 +318,18 @@ class FS {
         }
         let n = 0;
         if (position !== null) {
-            n = this.pwriteSync_(fd, buf, position);
+            n = this.pwrite_(fd, buf, position);
         } else {
-            n = this.writeSync(fd, buf);
+            const handle = this.fds_.get(fd);
+            let position = 0;
+            // handle can be null when fd is 1 or 2.
+            if (handle) {
+                position = handle.offset;
+            }
+            n = this.pwrite_(fd, buf, position);
+            if (handle && !handle.isCharacterDevice()) {
+                handle.offset += n;
+            }
         }
         callback(null, n);
     }
