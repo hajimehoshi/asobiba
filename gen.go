@@ -19,13 +19,16 @@ import (
 	"strings"
 )
 
-var flagTar = flag.String("tar", "", "tar file of Go binary")
+var (
+	flagTar = flag.String("tar", "", "tar file of Go binary")
+	flagDir = flag.String("dir", "", "directory of Go binary")
+)
 
 func main() {
 	flag.Parse()
-	if *flagTar == "" {
+	if *flagTar == "" && *flagDir == "" {
 		// TODO: This works only on macOS and Linux. Take care about other platforms.
-		fmt.Fprintf(os.Stderr, "-tar must be specified. Download from https://dl.google.com/go/go%s.%s-%s.tar.gz and use it.\n", goversion, runtime.GOOS, runtime.GOARCH)
+		fmt.Fprintf(os.Stderr, "-tar or -dir must be specified. Download from https://dl.google.com/go/go%s.%s-%s.tar.gz and use it.\n", goversion, runtime.GOOS, runtime.GOARCH)
 		os.Exit(1)
 	}
 
@@ -61,10 +64,19 @@ const (
 )
 
 func prepareGo(tmp string) error {
-	const gotarfile = "go.tar.gz"
+	if (*flagDir != "") {
+		fmt.Printf("Copying %s\n", *flagDir)
+		cmd := exec.Command("cp", "-r", *flagDir, filepath.Join(tmp, "go"))
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return err
+		}
+		return nil
+	}
 
-	fmt.Printf("Copying %s\n", gotarfile)
-	
+	const gotarfile = "go.tar.gz"
+	fmt.Printf("Copying %s to %s\n", *flagTar, gotarfile)
+
 	in, err := os.Open(*flagTar)
 	if err != nil {
 		return err
