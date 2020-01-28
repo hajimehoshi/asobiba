@@ -83,6 +83,16 @@ class FD {
     get path() { return this.path_; }
     get offset() { return this.offset_; }
     set offset(offset) { this.offset_ = offset; }
+
+    isCharacterDevice() {
+        if (this.fd_ === 0 || this.fd_ === 1 || this.fd_ === 2) {
+            return true;
+        }
+        if (this.path_ === '/dev/null') {
+            return true;
+        }
+        return false;
+    }
 }
 
 class FS {
@@ -183,7 +193,6 @@ class FS {
             directory: true,
         });
         this.files_.set('/dev/null', {
-            characterDevice: true,
         });
         this.files_.set('/root', {
             directory: true,
@@ -246,7 +255,7 @@ class FS {
             position = handle.offset;
         }
         const n = this.pwriteSync_(fd, buf, position);
-        if (handle && !this.files_.get(handle.path).characterDevice) {
+        if (handle && !handle.isCharacterDevice()) {
             handle.offset += n;
         }
         return n;
@@ -473,7 +482,7 @@ class FS {
                 position = handle.offset;
             }
             n = this.pread_(fd, buffer, offset, length, position);
-            if (handle && !this.files_.get(handle.path).characterDevice) {
+            if (handle && !handle.isCharacterDevice()) {
                 handle.offset += n;
             }
         }
@@ -607,7 +616,7 @@ class FS {
             mtime = file.mtime * 1000;
         }
         let size = 0;
-        if (!file.directory && !file.characterDevice) {
+        if (!file.directory && file.content) {
             size = file.content.byteLength;
         }
         callback(null, {
