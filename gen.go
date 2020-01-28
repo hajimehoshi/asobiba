@@ -50,6 +50,9 @@ func run() error {
 	if err := replaceFiles(tmp); err != nil {
 		return err
 	}
+	if err := copyWasmExecJs(tmp); err != nil {
+		return err
+	}
 	if err := genStdfiles(tmp); err != nil {
 		return err
 	}
@@ -166,6 +169,30 @@ func goroot(tmp string) (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(string(out)), nil
+}
+
+func copyWasmExecJs(tmp string) error {
+	fmt.Printf("Copying wasm_exec.js\n")
+
+	gr, err := goroot(tmp)
+	if err != nil {
+		return err
+	}
+
+	out, err := os.Create("./wasm_exec.js")
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	in, err := os.Open(filepath.Join(gr, "misc", "wasm", "wasm_exec.js"))
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	if _, err := io.Copy(out, in); err != nil {
+		return err
+	}
+	return nil
 }
 
 func stdfiles(tmp string) ([]string, error) {
