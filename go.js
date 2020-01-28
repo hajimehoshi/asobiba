@@ -737,11 +737,14 @@ class GoInternal {
 
             const goversion = '1.14beta1'
             const commandName = command.split('/').pop()
-            let wasm = null;
+            let wasmPath = null;
+            let wasmContent = null;
             if (command === 'go') {
-                wasm = `./bin/go${goversion}.wasm`;
+                wasmPath = `./bin/go${goversion}.wasm`;
             } else if (command === `/go/pkg/tool/js_wasm/${commandName}` && FS.tools().includes(commandName)) {
-                wasm = `./bin/${commandName}${goversion}.wasm`;
+                wasmPath = `./bin/${commandName}${goversion}.wasm`;
+            } else if (globalThis.fs.files_.has(command)) {
+                wasmContent = globalThis.fs.files_.get(command).content;
             } else {
                 reject(new Error('command not found: ' + command));
                 return;
@@ -755,7 +758,13 @@ class GoInternal {
             };
 
             const go = new Go();
-            instantiateStreaming(fetch(wasm), go.importObject).then(result => {
+            let wasm = null;
+            if (wasmPath) {
+                wasm = instantiateStreaming(fetch(wasmPath), go.importObject);
+            } else {
+                wasm = WebAssembly.instantiate(wasmContent, go.importObject);
+            }
+            wasm.then(result => {
                 const origStdin = this.stdin_;
                 const origStdout = this.stdout_;
                 const origStderr = this.stderr_;
