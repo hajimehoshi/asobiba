@@ -65,6 +65,26 @@ class Storage {
     }
 }
 
+class FD {
+    static nextFD_ = 1000;
+
+    static nextFD() {
+        const fd = FD.nextFD_;
+        FD.nextFD_++;
+        return fd;
+    }
+
+    constructor(fd, path, offset) {
+        this.fd_ = fd;
+        this.path_ = path;
+        this.offset_ = offset; // TODO: Rename to position?
+    }
+
+    get path() { return this.path_; }
+    get offset() { return this.offset_; }
+    set offset(offset) { this.offset_ = offset; }
+}
+
 class FS {
     static get statModes() {
         return {
@@ -150,7 +170,6 @@ class FS {
         this.files_ = new Storage();
         this.fds_ = new Map();
         this.ps_ = ps;
-        this.nextFd_ = 1000;
     }
     
     async initializeFiles() {
@@ -396,16 +415,12 @@ class FS {
             });
         }
 
-        const fd = this.nextFd_;
         let offset = 0;
         if (flags & this.constants.O_APPEND) {
             offset = this.files_.get(path).content.byteLength;
         }
-        this.nextFd_++;
-        this.fds_.set(fd, {
-            path:   path,
-            offset: offset,
-        });
+        const fd = FD.nextFD();
+        this.fds_.set(fd, new FD(fd, path, offset));
         callback(null, fd);
     }
 
