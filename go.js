@@ -56,10 +56,9 @@ class Storage {
     }
 
     emptyDir(dir) {
+        const path = dir + '/';
         for (const key of this.storage_.keys()) {
-            if (key === dir)
-                continue;
-            if (!key.startsWith(dir))
+            if (!key.startsWith(path))
                 continue;
             this.storage_.delete(key);
         }
@@ -729,7 +728,6 @@ class GoInternal {
                 this.stderr_ = origStderr;
             };
 
-            const go = new Go();
             const goversion = '1.14beta1'
             const commandName = command.split('/').pop()
             let wasm = null;
@@ -749,6 +747,7 @@ class GoInternal {
                 GO111MODULE: 'on',
             };
 
+            const go = new Go();
             instantiateStreaming(fetch(wasm), go.importObject).then(result => {
                 go.argv = [commandName].concat(argv || []);
                 go.env = {...go.env, ...defaultEnv, ...env};
