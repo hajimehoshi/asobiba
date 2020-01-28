@@ -249,6 +249,7 @@ class FS {
         if (handle.path === '/dev/null') {
             return buf.byteLength;
         }
+
         const file = this.files_.get(handle.path);
         let content = file.content;
         let finalLength = content.byteLength;
@@ -264,7 +265,7 @@ class FS {
         while (n < finalLength) {
             n *= 2;
         }
-        if (content.buffer.byteLength !== n) {
+        if (content.buffer.byteLength < n) {
             const old = content;
             content = new Uint8Array(new ArrayBuffer(n), 0, finalLength);
             content.set(old);
@@ -420,6 +421,16 @@ class FS {
     }
 
     read(fd, buffer, offset, length, position, callback) {
+        /*const handle = this.fds_.get(fd);
+        if (handle.path.endsWith('b003/_pkg_.a')) {
+            const content = this.files_.get(handle.path).content;
+            globalThis.postMessage({
+                type: 'debug',
+                name: '_pkg_.a',
+                body: content,
+            })
+        }*/
+
         let n = 0;
         if (position !== null) {
             n = this.readAt_(fd, buffer, offset, length, position);
