@@ -253,6 +253,9 @@ class FS {
         const file = this.files_.get(handle.path);
         let content = file.content;
         let finalLength = content.byteLength;
+        if (finalLength < position) {
+            // TODO: Error?
+        }
         if (finalLength < position + buf.byteLength) {
             finalLength = position + buf.byteLength;
         }
@@ -265,6 +268,7 @@ class FS {
         while (n < finalLength) {
             n *= 2;
         }
+
         if (content.buffer.byteLength < n) {
             const old = content;
             content = new Uint8Array(new ArrayBuffer(n), 0, finalLength);
@@ -386,7 +390,7 @@ class FS {
                 directory: false,
             });
         }
-        // TODO: Abort if path is a directory.
+
         if (flags & this.constants.O_TRUNC) {
             this.files_.set(path, {
                 content:   new Uint8Array(0),
@@ -395,10 +399,14 @@ class FS {
         }
 
         const fd = this.nextFd_;
+        let offset = 0;
+        if (flags & this.constants.O_APPEND) {
+            offset = this.files_.get(path).content.byteLength;
+        }
         this.nextFd_++;
         this.fds_.set(fd, {
             path:   path,
-            offset: 0,
+            offset: offset,
         });
         callback(null, fd);
     }
@@ -421,16 +429,6 @@ class FS {
     }
 
     read(fd, buffer, offset, length, position, callback) {
-        /*const handle = this.fds_.get(fd);
-        if (handle.path.endsWith('b003/_pkg_.a')) {
-            const content = this.files_.get(handle.path).content;
-            globalThis.postMessage({
-                type: 'debug',
-                name: '_pkg_.a',
-                body: content,
-            })
-        }*/
-
         let n = 0;
         if (position !== null) {
             n = this.readAt_(fd, buffer, offset, length, position);
