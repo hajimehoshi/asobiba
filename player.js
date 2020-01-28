@@ -4,6 +4,12 @@
 window.addEventListener('message', (e) => {
     // TODO: Split the source into multiple files. See https://play.golang.org/p/KLZR7NlVZNX
     const src = e.data;
+
+    // Just demo
+    const pre = document.createElement('pre');
+    pre.textContent = src
+    document.body.appendChild(pre);
+
     const data = new TextEncoder().encode(src);
 
     const worker = new Worker('./go.js');
@@ -24,7 +30,7 @@ window.addEventListener('message', (e) => {
         }
     });
     worker.postMessage({
-        command: ['go', 'build', '-v', 'main.go'],
+        command: ['go', 'run', '-x', 'main.go'],
         files: {
             'main.go': data,
         }

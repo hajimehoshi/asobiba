@@ -1,4 +1,4 @@
-<p>hello</p>
+<p><code># go run -x main.go</code></p>
 <script src="script.js" type="module" defer></script>
 <ebiten-player></ebiten-playber>
 <script>
@@ -6,7 +6,10 @@
       const player = document.querySelector('ebiten-player');
       player.setAttribute('src', `package main
 
+import "fmt"
+
 func main() {
+  fmt.Println("Hello, World!")
 }
 `)
   });
