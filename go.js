@@ -782,13 +782,6 @@ class GoInternal {
                 return;
             }
 
-            const defaultEnv = {
-                TMPDIR:      '/tmp',
-                HOME:        '/root',
-                GOROOT:      '/go',
-                GO111MODULE: 'on',
-            };
-
             const go = new Go();
             let wasm = null;
             if (wasmPath) {
@@ -797,6 +790,13 @@ class GoInternal {
                 wasm = WebAssembly.instantiate(wasmContent, go.importObject);
             }
             wasm.then(result => {
+                const defaultEnv = {
+                    TMPDIR:      '/tmp',
+                    HOME:        '/root',
+                    GOROOT:      '/go',
+                    GO111MODULE: 'on',
+                };
+
                 const origStdin = this.stdin_;
                 const origStdout = this.stdout_;
                 const origStderr = this.stderr_;
