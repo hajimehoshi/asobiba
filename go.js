@@ -427,6 +427,26 @@ class FS {
     }
 
     read(fd, buffer, offset, length, position, callback) {
+        if (fd === 0) {
+            const result = this.stdin_(buf);
+            if (typeof result === 'number') {
+                const n = result;
+                if (n === 0) {
+                    // 0 indicates EOF.
+                    callback(null, 0);
+                    return;
+                }
+                const buf = new Uint8Array(length);
+                for (let i = 0; i < n; i++) {
+                    buffer[offset+i] = buf[i];
+                }
+                callback(null, buf.byteLength);
+            } else {
+                callback(new Error(result));
+            }
+            return;
+        }
+
         let n = 0;
         if (position !== null) {
             n = this.pread_(fd, buffer, offset, length, position);
@@ -645,6 +665,7 @@ class Process {
 class GoInternal {
     constructor() {
         this.initialized_ = false;
+        this.stdin_ = null;
         this.stdout_ = null;
         this.stderr_ = null;
         this.stdoutBuf_ = "";
@@ -703,7 +724,7 @@ class GoInternal {
         }
     }
 
-    execCommand(command, argv, env, dir, stdout, stderr) {
+    execCommand(command, argv, env, dir, stdin, stdout, stderr) {
         return new Promise((resolve, reject) => {
             // Polyfill
             let instantiateStreaming = WebAssembly.instantiateStreaming;
@@ -713,20 +734,6 @@ class GoInternal {
                     return await WebAssembly.instantiate(source, importObject);
                 };
             }
-
-            const origStdout = this.stdout_;
-            const origStderr = this.stderr_;
-            this.stdout_ = stdout;
-            this.stderr_ = stderr;
-            const origCwd = globalThis.process.cwd();
-            if (dir) {
-                globalThis.process.chdir(dir);
-            }
-            const defer = () => {
-                globalThis.process.chdir(origCwd);
-                this.stdout_ = origStdout;
-                this.stderr_ = origStderr;
-            };
 
             const goversion = '1.14beta1'
             const commandName = command.split('/').pop()
@@ -749,6 +756,23 @@ class GoInternal {
 
             const go = new Go();
             instantiateStreaming(fetch(wasm), go.importObject).then(result => {
+                const origStdin = this.stdin_;
+                const origStdout = this.stdout_;
+                const origStderr = this.stderr_;
+                this.stdin_ = stdin;
+                this.stdout_ = stdout;
+                this.stderr_ = stderr;
+                const origCwd = globalThis.process.cwd();
+                if (dir) {
+                    globalThis.process.chdir(dir);
+                }
+                const defer = () => {
+                    globalThis.process.chdir(origCwd);
+                    this.stdin_ = origStdin;
+                    this.stdout_ = origStdout;
+                    this.stderr_ = origStderr;
+                };
+
                 go.argv = [commandName].concat(argv || []);
                 go.env = {...go.env, ...defaultEnv, ...env};
                 go.run(result.instance).then(() => {
@@ -776,7 +800,7 @@ class GoInternal {
             }
             globalThis.process.chdir('/root');
 
-            this.execCommand('go', argv, {}, '', null, null).then(resolve).catch(reject).finally(() => {
+            this.execCommand('go', argv, {}, '', null, null, null).then(resolve).catch(reject).finally(() => {
                 globalThis.fs.emptyDir_('/tmp');
             });
         })

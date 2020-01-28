@@ -62,9 +62,6 @@ func (c *Cmd) Output() ([]byte, error) {
 }
 
 func (c *Cmd) Run() error {
-	if c.Stdin != nil {
-		panic("exec: Stdin is not supported")
-	}
 	if len(c.ExtraFiles) > 0 {
 		panic("exec: ExtraFiles is not supported")
 	}
@@ -105,6 +102,22 @@ func (c *Cmd) Run() error {
 	})
 	defer catch.Release()
 
+	stdin := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		bufjs := args[0]
+		buf := make([]byte, bufjs.Get("byteLength").Int())
+		// As n == 0 must indicate EOF, read 1 byte at least.
+		n, err := io.ReadAtLeast(c.Stdin, buf, 1)
+		if err != nil {
+			if err == io.EOF {
+				return 0
+			}
+			return err.Error()
+		}
+		js.CopyBytesToJS(bufjs, buf)
+		return n
+	})
+	defer stdin.Release()
+
 	var stdoutBuf []byte
 	var stderrBuf []byte
 	stdout := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
@@ -123,7 +136,7 @@ func (c *Cmd) Run() error {
 	defer stderr.Release()
 
 	// All usages of stdout/stderr are forbidden until the channel receives.
-	js.Global().Get("goInternal_").Call("execCommand", c.Path, args, env, c.Dir, stdout, stderr).Call("then", then).Call("catch", catch)
+	js.Global().Get("goInternal_").Call("execCommand", c.Path, args, env, c.Dir, stdin, stdout, stderr).Call("then", then).Call("catch", catch)
 	err := <-ch
 
 	if _, err := c.Stdout.Write(stdoutBuf); err != nil {
