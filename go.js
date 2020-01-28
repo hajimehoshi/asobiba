@@ -226,14 +226,14 @@ class FS {
         if (handle) {
             position = handle.offset;
         }
-        const n = this.writeSyncAt_(fd, buf, position);
+        const n = this.pwriteSync_(fd, buf, position);
         if (handle && !this.files_.get(handle.path).characterDevice) {
             handle.offset += n;
         }
         return n;
     }
 
-    writeSyncAt_(fd, buf, position) {
+    pwriteSync_(fd, buf, position) {
         if (fd === 1) {
             globalThis.goInternal_.writeToStdout(buf);
             return buf.byteLength;
@@ -291,7 +291,7 @@ class FS {
         }
         let n = 0;
         if (position !== null) {
-            n = this.writeSyncAt_(fd, buf, position);
+            n = this.pwriteSync_(fd, buf, position);
         } else {
             n = this.writeSync(fd, buf);
         }
@@ -409,7 +409,7 @@ class FS {
         callback(null, fd);
     }
 
-    readAt_(fd, buffer, offset, length, position) {
+    pread_(fd, buffer, offset, length, position) {
         const handle = this.fds_.get(fd);
         const file = this.files_.get(handle.path);
         const content = file.content;
@@ -429,7 +429,7 @@ class FS {
     read(fd, buffer, offset, length, position, callback) {
         let n = 0;
         if (position !== null) {
-            n = this.readAt_(fd, buffer, offset, length, position);
+            n = this.pread_(fd, buffer, offset, length, position);
         } else {
             const handle = this.fds_.get(fd);
             // handle can be null when fd is 0.
@@ -437,7 +437,7 @@ class FS {
             if (handle) {
                 position = handle.offset;
             }
-            n = this.readAt_(fd, buffer, offset, length, position);
+            n = this.pread_(fd, buffer, offset, length, position);
             if (handle && !this.files_.get(handle.path).characterDevice) {
                 handle.offset += n;
             }
