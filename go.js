@@ -182,14 +182,13 @@ class FS {
 
         // stdlib files
         // TODO: Load them lazily
-        const encoder = new TextEncoder();
         let stdfiles = await (await fetch('./stdfiles.json')).json();
         for (const filename of Object.keys(stdfiles)) {
             const fullfn = goroot + '/' + filename;
             const dir = fullfn.substring(0, fullfn.lastIndexOf('/'));
             this.mkdirp_(dir);
             this.files_.set(fullfn, {
-                content: encoder.encode(atob(stdfiles[filename])),
+                content: Uint8Array.from(atob(stdfiles[filename]), c => c.charCodeAt(0)),
             });
         }
 
