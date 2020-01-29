@@ -9,6 +9,9 @@ class Go {
         this.stderrDecoder_ = new TextDecoder('utf-8');
 
         this.output_ = document.getElementById('output');
+        while (this.output_.firstChild) {
+            this.output_.firstChild.remove();
+        }
     }
 
     run(source) {
@@ -93,12 +96,16 @@ window.addEventListener('DOMContentLoaded', (e) => {
 
     const defaultSource = `package main
 
+import "fmt"
+
 func main() {
-  println("Hello, World!")
+  fmt.Println("Hello, World!")
 }`;
 
     const textArea = document.getElementById('source');
-    textArea.textContent = defaultSource;
+    if (!textArea.value) {
+        textArea.value = defaultSource;
+    }
 
     const runButton = document.getElementById('run');
     runButton.addEventListener('click', async () => {
@@ -106,8 +113,7 @@ func main() {
 
         // TODO: Split the source into multiple files. See https://play.golang.org/p/KLZR7NlVZNX
         const textArea = document.getElementById('source');
-        const src = textArea.textContent;
-
+        const src = textArea.value;
         const data = new TextEncoder().encode(src);
         const go = new Go();
         await go.run(data);
