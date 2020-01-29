@@ -43,8 +43,8 @@ class Go {
                     span.textContent = this.stdoutBuf_.substring(0, n+1);
 
                     const scrollable = this.output_.parentElement;
-                    this.output_.appendChild(span);
                     const tracking = scrollable.scrollHeight - scrollable.scrollTop === scrollable.clientHeight;
+                    this.output_.appendChild(span);
                     if (tracking) {
                         scrollable.scroll(0, scrollable.scrollHeight);
                     }
