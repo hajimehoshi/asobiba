@@ -850,7 +850,7 @@ class GoInternal {
                 const path = '/root/' + filename
                 await globalThis.fs.files_.set(path, {
                     content: files[filename],
-                })
+                });
             }
             globalThis.process.chdir('/root');
 

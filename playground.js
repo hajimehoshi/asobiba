@@ -16,13 +16,17 @@ class Go {
 
     run(source) {
         return new Promise((resolve, reject) => {
+            const defaultGoMod = new TextEncoder().encode(`module asobiba`);
+
             const worker = new Worker('./go.js');
             worker.addEventListener('message', this.onMessageFromWorker_(resolve, reject));
             worker.postMessage({
                 command: ['go', 'run', '-x', 'main.go'],
                 files: {
                     'main.go': source,
-                }
+                    // Modules doesn't work due to CORS issue so far.
+                    // 'go.mod':  defaultGoMod,
+                },
             });
         })
     }

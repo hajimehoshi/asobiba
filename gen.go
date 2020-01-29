@@ -118,40 +118,45 @@ func prepareGo(tmp string) error {
 }
 
 func replaceFiles(tmp string) error {
-	// Rewite files in os/exec
-	if err := os.RemoveAll(filepath.Join(tmp, "go", "src", "os", "exec")); err != nil {
-		return err
-	}
-	if err := os.Mkdir(filepath.Join(tmp, "go", "src", "os", "exec"), 0777); err != nil {
-		return err
-	}
-
-	dir, err := os.Open(filepath.Join("go", "os", "exec"))
-	if err != nil {
-		return err
-	}
-	fs, err := dir.Readdir(0)
-	if err != nil {
-		return err
-	}
-	for _, f := range fs {
-		if f.IsDir() {
-			continue
+	// Rewite files in some packages.
+	for _, path := range []string{
+		filepath.Join("os", "exec"),
+		filepath.Join("cmd", "go", "internal", "lockedfile", "internal", "filelock"),
+	} {
+		if err := os.RemoveAll(filepath.Join(tmp, "go", "src", path)); err != nil {
+			return err
+		}
+		if err := os.Mkdir(filepath.Join(tmp, "go", "src", path), 0777); err != nil {
+			return err
 		}
 
-		in, err := os.Open(filepath.Join("go", "os", "exec", f.Name()))
+		dir, err := os.Open(filepath.Join("go", path))
 		if err != nil {
 			return err
 		}
-		defer in.Close()
-		out, err := os.Create(filepath.Join(tmp, "go", "src", "os", "exec", f.Name()))
+		fs, err := dir.Readdir(0)
 		if err != nil {
 			return err
 		}
-		defer out.Close()
+		for _, f := range fs {
+			if f.IsDir() {
+				continue
+			}
 
-		if _, err := io.Copy(out, in); err != nil {
-			return err
+			in, err := os.Open(filepath.Join("go", path, f.Name()))
+			if err != nil {
+				return err
+			}
+			defer in.Close()
+			out, err := os.Create(filepath.Join(tmp, "go", "src", path, f.Name()))
+			if err != nil {
+				return err
+			}
+			defer out.Close()
+
+			if _, err := io.Copy(out, in); err != nil {
+				return err
+			}
 		}
 	}
 	
