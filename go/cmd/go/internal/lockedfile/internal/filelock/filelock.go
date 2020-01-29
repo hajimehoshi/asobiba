@@ -21,16 +21,29 @@ func IsNotSupported(err error) bool {
 	return false
 }
 
+var locks = map[File]struct{}{}
+
 func Lock(f File) error {
-	// TODO: Is the empty implementation actually fine?
+	if _, ok := locks[f]; ok {
+		return errors.New("already locked")
+	}
+	locks[f] = struct{}{}
 	return nil
 }
 
 func RLock(f File) error {
+	if _, ok := locks[f]; ok {
+		return errors.New("already locked")
+	}
+	locks[f] = struct{}{}
 	return nil
 }
 
 func Unlock(f File) error {
+	if _, ok := locks[f]; !ok {
+		return errors.New("not locked yet")
+	}
+	delete(locks, f)
 	return nil
 }
 
