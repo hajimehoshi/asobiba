@@ -181,6 +181,7 @@ class FS {
         this.fds_ = new Map();
         this.ps_ = ps;
         this.writeSyncBuf_ = "";
+        this.decoder_ = new TextDecoder("utf-8");
     }
     
     async initializeFiles() {
@@ -250,8 +251,7 @@ class FS {
 
     // writeSync is called only from runtime.wasmSync. Use the default implementation.
     writeSync(fd, buf) {
-	const decoder = new TextDecoder("utf-8");
-        this.writeSyncBuf_ += decoder.decode(buf);
+        this.writeSyncBuf_ += this.decoder_.decode(buf);
         const nl = this.writeSyncBuf_.lastIndexOf("\n");
         if (nl != -1) {
             console.log(this.writeSyncBuf_.substr(0, nl));
@@ -729,7 +729,9 @@ class GoInternal {
         this.stdout_ = null;
         this.stderr_ = null;
         this.stdoutBuf_ = "";
+        this.stdoutDecoder_ = new TextDecoder("utf-8");
         this.stderrBuf_ = "";
+        this.stderrDecoder_ = new TextDecoder("utf-8");
     }
 
     async initializeGlobalVariablesIfNeeded() {
@@ -753,7 +755,7 @@ class GoInternal {
             return;
         }
 
-        this.stdoutBuf_ += new TextDecoder('utf-8').decode(buf);
+        this.stdoutBuf_ += this.stdoutDecoder_.decode(buf);
         for (;;) {
             const n = this.stdoutBuf_.indexOf('\n');
             if (n < 0) {
@@ -773,7 +775,7 @@ class GoInternal {
             return;
         }
 
-        this.stderrBuf_ += new TextDecoder('utf-8').decode(buf);
+        this.stderrBuf_ += this.stderrDecoder_.decode(buf);
         for (;;) {
             const n = this.stderrBuf_.indexOf('\n');
             if (n < 0) {
