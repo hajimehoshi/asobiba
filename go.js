@@ -786,39 +786,43 @@ class GoInternal {
         }
     }
 
+    async wasmModule_(command) {
+        // Polyfill
+        let compileStreaming = WebAssembly.compileStreaming;
+        if (!compileStreaming) {
+            compileStreaming = async (resp) => {
+                const source = await (await resp).arrayBuffer();
+                return await WebAssembly.compile(source);
+            };
+        }
+
+        const goversion = '1.14beta1';
+        const commandName = command.split('/').pop();
+        let wasmPath = null;
+        let wasmContent = null;
+        if (command === 'go') {
+            wasmPath = `./bin/go${goversion}.wasm`;
+        } else if (command === `/go/pkg/tool/js_wasm/${commandName}` && FS.tools().includes(commandName)) {
+            wasmPath = `./bin/${commandName}${goversion}.wasm`;
+        } else if (await globalThis.fs.files_.has(command)) {
+            wasmContent = (await globalThis.fs.files_.get(command)).content;
+        } else {
+            reject(new Error('command not found: ' + command));
+            return;
+        }
+
+        let wasmModule = null;
+        if (wasmPath) {
+            wasmModule = await compileStreaming(fetch(wasmPath));
+        } else {
+            wasmModule = await WebAssembly.compile(wasmContent);
+        }
+        return wasmModule;
+    }
+
     execCommand(command, argv, env, dir, stdin, stdout, stderr) {
         return new Promise(async (resolve, reject) => {
-            // Polyfill
-            let compileStreaming = WebAssembly.compileStreaming;
-            if (!compileStreaming) {
-                compileStreaming = async (resp) => {
-                    const source = await (await resp).arrayBuffer();
-                    return await WebAssembly.compile(source);
-                };
-            }
-
-            const goversion = '1.14beta1'
-            const commandName = command.split('/').pop()
-            let wasmPath = null;
-            let wasmContent = null;
-            if (command === 'go') {
-                wasmPath = `./bin/go${goversion}.wasm`;
-            } else if (command === `/go/pkg/tool/js_wasm/${commandName}` && FS.tools().includes(commandName)) {
-                wasmPath = `./bin/${commandName}${goversion}.wasm`;
-            } else if (await globalThis.fs.files_.has(command)) {
-                wasmContent = (await globalThis.fs.files_.get(command)).content;
-            } else {
-                reject(new Error('command not found: ' + command));
-                return;
-            }
-
-            let wasmModule = null;
-            if (wasmPath) {
-                wasmModule = await compileStreaming(fetch(wasmPath));
-            } else {
-                wasmModule = await WebAssembly.compile(wasmContent);
-            }
-
+            const wasmModule = await this.wasmModule_(command);
             const go = new Go();
             const wasmInstance = await WebAssembly.instantiate(wasmModule, go.importObject)
             const defaultEnv = {
@@ -845,6 +849,7 @@ class GoInternal {
                 this.stderr_ = origStderr;
             };
 
+            const commandName = command.split('/').pop();
             go.argv = [commandName].concat(argv || []);
             go.env = {...go.env, ...defaultEnv, ...env};
             go.run(wasmInstance).then(() => {
