@@ -789,11 +789,11 @@ class GoInternal {
     execCommand(command, argv, env, dir, stdin, stdout, stderr) {
         return new Promise(async (resolve, reject) => {
             // Polyfill
-            let instantiateStreaming = WebAssembly.instantiateStreaming;
-            if (!instantiateStreaming) {
-                instantiateStreaming = async (resp, importObject) => {
+            let compileStreaming = WebAssembly.compileStreaming;
+            if (!compileStreaming) {
+                compileStreaming = async (resp) => {
                     const source = await (await resp).arrayBuffer();
-                    return await WebAssembly.instantiate(source, importObject);
+                    return await WebAssembly.compile(source);
                 };
             }
 
@@ -812,47 +812,47 @@ class GoInternal {
                 return;
             }
 
-            const go = new Go();
-            let wasm = null;
+            let wasmModule = null;
             if (wasmPath) {
-                wasm = instantiateStreaming(fetch(wasmPath), go.importObject);
+                wasmModule = await compileStreaming(fetch(wasmPath));
             } else {
-                wasm = WebAssembly.instantiate(wasmContent, go.importObject);
+                wasmModule = await WebAssembly.compile(wasmContent);
             }
-            wasm.then(result => {
-                const defaultEnv = {
-                    TMPDIR:      '/tmp',
-                    HOME:        '/root',
-                    GOROOT:      '/go',
-                    GO111MODULE: 'on',
-                };
 
-                const origStdin = this.stdin_;
-                const origStdout = this.stdout_;
-                const origStderr = this.stderr_;
-                this.stdin_ = stdin;
-                this.stdout_ = stdout;
-                this.stderr_ = stderr;
-                const origCwd = globalThis.process.cwd();
-                if (dir) {
-                    globalThis.process.chdir(dir);
-                }
-                const defer = () => {
-                    globalThis.process.chdir(origCwd);
-                    this.stdin_ = origStdin;
-                    this.stdout_ = origStdout;
-                    this.stderr_ = origStderr;
-                };
+            const go = new Go();
+            const wasmInstance = await WebAssembly.instantiate(wasmModule, go.importObject)
+            const defaultEnv = {
+                TMPDIR:      '/tmp',
+                HOME:        '/root',
+                GOROOT:      '/go',
+                GO111MODULE: 'on',
+            };
 
-                go.argv = [commandName].concat(argv || []);
-                go.env = {...go.env, ...defaultEnv, ...env};
-                go.run(result.instance).then(() => {
-                    defer();
-                    resolve();
-                }).catch(e => {
-                    defer();
-                    reject(e);
-                });
+            const origStdin = this.stdin_;
+            const origStdout = this.stdout_;
+            const origStderr = this.stderr_;
+            this.stdin_ = stdin;
+            this.stdout_ = stdout;
+            this.stderr_ = stderr;
+            const origCwd = globalThis.process.cwd();
+            if (dir) {
+                globalThis.process.chdir(dir);
+            }
+            const defer = () => {
+                globalThis.process.chdir(origCwd);
+                this.stdin_ = origStdin;
+                this.stdout_ = origStdout;
+                this.stderr_ = origStderr;
+            };
+
+            go.argv = [commandName].concat(argv || []);
+            go.env = {...go.env, ...defaultEnv, ...env};
+            go.run(wasmInstance).then(() => {
+                defer();
+                resolve();
+            }).catch(e => {
+                defer();
+                reject(e);
             });
         })
     }
