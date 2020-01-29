@@ -260,7 +260,7 @@ class FS {
         return buf.length;
     }
 
-    pwrite_(fd, buf, position) {
+    async pwrite_(fd, buf, position) {
         if (fd === 1) {
             globalThis.goInternal_.writeToStdout(buf);
             return buf.byteLength;
@@ -311,27 +311,29 @@ class FS {
     }
 
     write(fd, buf, offset, length, position, callback) {
-        if (offset !== 0 || length !== buf.byteLength) {
-            // TOOD: Implement this.
-            callback(enosys('write'));
-            return;
-        }
-        let n = 0;
-        if (position !== null) {
-            n = this.pwrite_(fd, buf, position);
-        } else {
-            const handle = this.fds_.get(fd);
-            let position = 0;
-            // handle can be null when fd is 1 or 2.
-            if (handle) {
-                position = handle.offset;
+        (async() => {
+            if (offset !== 0 || length !== buf.byteLength) {
+                // TOOD: Implement this.
+                callback(enosys('write'));
+                return;
             }
-            n = this.pwrite_(fd, buf, position);
-            if (handle && !handle.isCharacterDevice()) {
-                handle.offset += n;
+            let n = 0;
+            if (position !== null) {
+                n = await this.pwrite_(fd, buf, position);
+            } else {
+                const handle = this.fds_.get(fd);
+                let position = 0;
+                // handle can be null when fd is 1 or 2.
+                if (handle) {
+                    position = handle.offset;
+                }
+                n = await this.pwrite_(fd, buf, position);
+                if (handle && !handle.isCharacterDevice()) {
+                    handle.offset += n;
+                }
             }
-        }
-        callback(null, n);
+            callback(null, n);
+        })();
     }
 
     chmod(path, mode, callback) {
@@ -343,8 +345,10 @@ class FS {
     }
 
     close(fd, callback) {
-        this.fds_.delete(fd);
-        callback(null);
+        (async() => {
+            this.fds_.delete(fd);
+            callback(null);
+        })();
     }
 
     fchmod(fd, mode, callback) {
@@ -356,7 +360,9 @@ class FS {
     }
 
     fstat(fd, callback) {
-        this.stat_(this.fds_.get(fd).path, callback);
+        (async() => {
+            await this.stat_(this.fds_.get(fd).path, callback);
+        })();
     }
 
     fsync(fd, callback) {
@@ -364,11 +370,13 @@ class FS {
     }
 
     ftruncate(fd, length, callback) {
-        const handle = this.fds_.get(fd);
-        const file = this.files_.get(handle.path);
-        file.content = new Uint8Array(file.content.buffer, 0, length);
-        this.files_.set(this.fds_.get(fd).path, file);
-        callback(null);
+        (async() => {
+            const handle = this.fds_.get(fd);
+            const file = this.files_.get(handle.path);
+            file.content = new Uint8Array(file.content.buffer, 0, length);
+            this.files_.set(this.fds_.get(fd).path, file);
+            callback(null);
+        })();
     }
 
     lchown(path, uid, gid, callback) {
@@ -380,68 +388,74 @@ class FS {
     }
 
     lstat(path, callback) {
-        this.stat_(path, callback);
+        (async() => {
+            await this.stat_(path, callback);
+        })();
     }
 
     mkdir(path, perm, callback) {
-        path = FS.absPath(this.ps_.cwd(), path);
-        const ds = FS.dirs(path);
-        for (let i = 0; i < ds.length; i++) {
-            const file = this.files_.get(ds[i]);
-            if (!file) {
-                if (i !== ds.length - 1) {
+        (async() => {
+            path = FS.absPath(this.ps_.cwd(), path);
+            const ds = FS.dirs(path);
+            for (let i = 0; i < ds.length; i++) {
+                const file = this.files_.get(ds[i]);
+                if (!file) {
+                    if (i !== ds.length - 1) {
+                        const err = new Error('file exists');
+                        err.code = 'EEXIST';
+                        callback(err);
+                        return;
+                    }
+                    break;
+                }
+                if (!file.directory) {
                     const err = new Error('file exists');
                     err.code = 'EEXIST';
                     callback(err);
                     return;
                 }
-                break;
             }
-            if (!file.directory) {
-                const err = new Error('file exists');
-                err.code = 'EEXIST';
-                callback(err);
-                return;
-            }
-        }
-        this.files_.set(path, {
-            directory: true,
-        });
-        callback(null);
+            this.files_.set(path, {
+                directory: true,
+            });
+            callback(null);
+        })();
     }
 
     open(path, flags, mode, callback) {
-        path = FS.absPath(this.ps_.cwd(), path);
-        if (!this.files_.has(path)) {
-            if (!(flags & this.constants.O_CREAT)) {
-                const err = new Error('no such file or directory');
-                err.code = 'ENOENT';
-                callback(err);
-                return;
+        (async() => {
+            path = FS.absPath(this.ps_.cwd(), path);
+            if (!this.files_.has(path)) {
+                if (!(flags & this.constants.O_CREAT)) {
+                    const err = new Error('no such file or directory');
+                    err.code = 'ENOENT';
+                    callback(err);
+                    return;
+                }
+                this.files_.set(path, {
+                    content:   new Uint8Array(0),
+                    directory: false,
+                });
             }
-            this.files_.set(path, {
-                content:   new Uint8Array(0),
-                directory: false,
-            });
-        }
 
-        if (flags & this.constants.O_TRUNC) {
-            this.files_.set(path, {
-                content:   new Uint8Array(0),
-                directory: false,
-            });
-        }
+            if (flags & this.constants.O_TRUNC) {
+                this.files_.set(path, {
+                    content:   new Uint8Array(0),
+                    directory: false,
+                });
+            }
 
-        let offset = 0;
-        if (flags & this.constants.O_APPEND) {
-            offset = this.files_.get(path).content.byteLength;
-        }
-        const fd = FD.nextFD();
-        this.fds_.set(fd, new FD(fd, path, offset));
-        callback(null, fd);
+            let offset = 0;
+            if (flags & this.constants.O_APPEND) {
+                offset = this.files_.get(path).content.byteLength;
+            }
+            const fd = FD.nextFD();
+            this.fds_.set(fd, new FD(fd, path, offset));
+            callback(null, fd);
+        })();
     }
 
-    pread_(fd, buffer, offset, length, position) {
+    async pread_(fd, buffer, offset, length, position) {
         const handle = this.fds_.get(fd);
         const file = this.files_.get(handle.path);
         const content = file.content;
@@ -459,48 +473,52 @@ class FS {
     }
 
     read(fd, buffer, offset, length, position, callback) {
-        if (fd === 0) {
-            const result = this.stdin_(buf);
-            if (typeof result === 'number') {
-                const n = result;
-                if (n === 0) {
-                    // 0 indicates EOF.
-                    callback(null, 0);
-                    return;
+        (async() => {
+            if (fd === 0) {
+                const result = this.stdin_(buf);
+                if (typeof result === 'number') {
+                    const n = result;
+                    if (n === 0) {
+                        // 0 indicates EOF.
+                        callback(null, 0);
+                        return;
+                    }
+                    const buf = new Uint8Array(length);
+                    for (let i = 0; i < n; i++) {
+                        buffer[offset+i] = buf[i];
+                    }
+                    callback(null, buf.byteLength);
+                } else {
+                    callback(new Error(result));
                 }
-                const buf = new Uint8Array(length);
-                for (let i = 0; i < n; i++) {
-                    buffer[offset+i] = buf[i];
-                }
-                callback(null, buf.byteLength);
-            } else {
-                callback(new Error(result));
+                return;
             }
-            return;
-        }
 
-        let n = 0;
-        if (position !== null) {
-            n = this.pread_(fd, buffer, offset, length, position);
-        } else {
-            const handle = this.fds_.get(fd);
-            // handle can be null when fd is 0.
-            let position = 0;
-            if (handle) {
-                position = handle.offset;
+            let n = 0;
+            if (position !== null) {
+                n = await this.pread_(fd, buffer, offset, length, position);
+            } else {
+                const handle = this.fds_.get(fd);
+                // handle can be null when fd is 0.
+                let position = 0;
+                if (handle) {
+                    position = handle.offset;
+                }
+                n = await this.pread_(fd, buffer, offset, length, position);
+                if (handle && !handle.isCharacterDevice()) {
+                    handle.offset += n;
+                }
             }
-            n = this.pread_(fd, buffer, offset, length, position);
-            if (handle && !handle.isCharacterDevice()) {
-                handle.offset += n;
-            }
-        }
-        callback(null, n);
+            callback(null, n);
+        })();
     }
 
     readdir(path, callback) {
-        path = FS.absPath(this.ps_.cwd(), path);
-        const filenames = this.filenamesAt_(path);
-        callback(null, filenames);
+        (async() => {
+            path = FS.absPath(this.ps_.cwd(), path);
+            const filenames = this.filenamesAt_(path);
+            callback(null, filenames);
+        })();
     }
 
     readlink(path, callback) {
@@ -508,57 +526,63 @@ class FS {
     }
 
     rename(from, to, callback) {
-        from = FS.absPath(this.ps_.cwd(), from);
-        to = FS.absPath(this.ps_.cwd(), to);
-        const fromFile = this.files_.get(from)
-        const toFile = this.files_.get(from)
-        if (!fromFile) {
-            const err = new Error('no such file or directory');
-            err.code = 'ENOENT';
-            callback(err);
-            return;
-        }
-        if (fromFile.directory) {
-            callback(enosys('rename'));
-            return;
-        }
-        if (toFile.directory) {
-            callback(enosys('rename'));
-            return;
-        }
-        this.files_.set(to, fromFile)
-        this.files_.delete(from)
-        callback(null);
+        (async() => {
+            from = FS.absPath(this.ps_.cwd(), from);
+            to = FS.absPath(this.ps_.cwd(), to);
+            const fromFile = this.files_.get(from)
+            const toFile = this.files_.get(from)
+            if (!fromFile) {
+                const err = new Error('no such file or directory');
+                err.code = 'ENOENT';
+                callback(err);
+                return;
+            }
+            if (fromFile.directory) {
+                callback(enosys('rename'));
+                return;
+            }
+            if (toFile.directory) {
+                callback(enosys('rename'));
+                return;
+            }
+            this.files_.set(to, fromFile)
+            this.files_.delete(from)
+            callback(null);
+        })();
     }
 
     rmdir(path, callback) {
-        // TODO: What if there exists a file handler to the directory?
-        path = FS.absPath(this.ps_.cwd(), path);
-        const file = this.files_.get(path);
-        if (!file) {
-            const err = new Error('no such file or directory');
-            err.code = 'ENOENT';
-            callback(err);
-            return;
-        }
-        if (!file.directory) {
-            const err = new Error('not a directory');
-            err.code = 'ENOTDIR';
-            callback(err);
-            return;
-        }
-        if (this.files_.hasChildren(path)) {
-            const err = new Error('directory not empty');
-            err.code = 'ENOTEMPTY';
-            callback(err);
-            return;
-        }
-        this.files_.delete(path);
-        callback(null);
+        (async() => {
+            // TODO: What if there exists a file handler to the directory?
+            path = FS.absPath(this.ps_.cwd(), path);
+            const file = this.files_.get(path);
+            if (!file) {
+                const err = new Error('no such file or directory');
+                err.code = 'ENOENT';
+                callback(err);
+                return;
+            }
+            if (!file.directory) {
+                const err = new Error('not a directory');
+                err.code = 'ENOTDIR';
+                callback(err);
+                return;
+            }
+            if (this.files_.hasChildren(path)) {
+                const err = new Error('directory not empty');
+                err.code = 'ENOTEMPTY';
+                callback(err);
+                return;
+            }
+            this.files_.delete(path);
+            callback(null);
+        })();
     }
 
     stat(path, callback) {
-        this.stat_(path, callback);
+        (async() => {
+            await this.stat_(path, callback);
+        })();
     }
 
     symlink(path, link, callback) {
@@ -572,35 +596,39 @@ class FS {
     }
 
     unlink(path, callback) {
-        // TODO: What if there exists a file handler to the file?
-        path = FS.absPath(this.ps_.cwd(), path);
-        const file = this.files_.get(path);
-        if (!file) {
-            const err = new Error('no such file or directory');
-            err.code = 'ENOENT';
-            callback(err);
-            return;
-        }
-        if (file.directory) {
-            const err = new Error('is a directory');
-            err.code = 'EISDIR';
-            callback(err);
-            return;
-        }
-        this.files_.delete(path);
-        callback(null);
+        (async() => {
+            // TODO: What if there exists a file handler to the file?
+            path = FS.absPath(this.ps_.cwd(), path);
+            const file = this.files_.get(path);
+            if (!file) {
+                const err = new Error('no such file or directory');
+                err.code = 'ENOENT';
+                callback(err);
+                return;
+            }
+            if (file.directory) {
+                const err = new Error('is a directory');
+                err.code = 'EISDIR';
+                callback(err);
+                return;
+            }
+            this.files_.delete(path);
+            callback(null);
+        })();
     }
 
     utimes(path, atime, mtime, callback) {
-        path = FS.absPath(this.ps_.cwd(), path);
-        const file = this.files_.get(path);
-        file.atime = atime;
-        file.mtime = mtime;
-        this.files_.set(path, file);
-        callback(null);
+        (async() => {
+            path = FS.absPath(this.ps_.cwd(), path);
+            const file = this.files_.get(path);
+            file.atime = atime;
+            file.mtime = mtime;
+            this.files_.set(path, file);
+            callback(null);
+        })();
     }
 
-    stat_(path, callback) {
+    async stat_(path, callback) {
         path = FS.absPath(this.ps_.cwd(), path);
         if (!this.files_.has(path)) {
             const err = new Error('no such file or directory');
