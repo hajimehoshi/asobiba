@@ -32,6 +32,7 @@ func main() {
 		os.Exit(1)
 	}
 
+	os.Unsetenv("GOROOT")
 	if err := run(); err != nil {
 		panic(err)
 	}
