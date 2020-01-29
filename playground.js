@@ -7,6 +7,8 @@ class Go {
         this.stdoutDecoder_ = new TextDecoder('utf-8');
         this.stderrBuf_ = '';
         this.stderrDecoder_ = new TextDecoder('utf-8');
+
+        this.output_ = document.getElementById('output');
     }
 
     run(source) {
@@ -33,7 +35,11 @@ class Go {
                     if (n < 0) {
                         break;
                     }
-                    console.log(this.stdoutBuf_.substring(0, n));
+                    const span = document.createElement('span');
+                    span.classList.add('stdout');
+                    span.textContent = this.stdoutBuf_.substring(0, n+1);
+                    this.output_.appendChild(span);
+
                     this.stdoutBuf_ = this.stdoutBuf_.substring(n+1);
                 }
                 break;
@@ -44,7 +50,11 @@ class Go {
                     if (n < 0) {
                         break;
                     }
-                    console.warn(this.stderrBuf_.substring(0, n));
+                    const span = document.createElement('span');
+                    span.classList.add('stderr');
+                    span.textContent = this.stderrBuf_.substring(0, n+1);
+                    this.output_.appendChild(span);
+
                     this.stderrBuf_ = this.stderrBuf_.substring(n+1);
                 }
                 break;

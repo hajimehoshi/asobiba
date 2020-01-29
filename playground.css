@@ -13,6 +13,20 @@ h1 {
 textarea {
     font-family: monospace;
 }
+pre {
+    white-space: pre-wrap;
+}
+
+/* color */
+body {
+    color: #333;
+}
+.stdout {
+    color: #333;
+}
+.stderr {
+    color: #c33;
+}
 
 /* flex */
 body {
@@ -22,6 +36,7 @@ body {
 }
 header {
     flex-grow: 0;
+    height: 48px;
 }
 main {
     flex-grow: 1;
@@ -35,6 +50,8 @@ main > textarea {
 aside {
     flex-grow: 0;
     width: 50%;
+    height: calc(var(--vh, 1vh) * 100 - 48px * 2);
+    overflow: auto;
 }
 footer {
     flex-grow: 0;
