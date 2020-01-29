@@ -38,7 +38,13 @@ class Go {
                     const span = document.createElement('span');
                     span.classList.add('stdout');
                     span.textContent = this.stdoutBuf_.substring(0, n+1);
+
+                    const scrollable = this.output_.parentElement;
                     this.output_.appendChild(span);
+                    const tracking = scrollable.scrollHeight - scrollable.scrollTop === scrollable.clientHeight;
+                    if (tracking) {
+                        scrollable.scroll(0, scrollable.scrollHeight);
+                    }
 
                     this.stdoutBuf_ = this.stdoutBuf_.substring(n+1);
                 }
@@ -53,7 +59,13 @@ class Go {
                     const span = document.createElement('span');
                     span.classList.add('stderr');
                     span.textContent = this.stderrBuf_.substring(0, n+1);
+
+                    const scrollable = this.output_.parentElement;
+                    const tracking = scrollable.scrollHeight - scrollable.scrollTop === scrollable.clientHeight;
                     this.output_.appendChild(span);
+                    if (tracking) {
+                        scrollable.scroll(0, scrollable.scrollHeight);
+                    }
 
                     this.stderrBuf_ = this.stderrBuf_.substring(n+1);
                 }
