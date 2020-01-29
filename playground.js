@@ -2,6 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 window.addEventListener('DOMContentLoaded', (e) => {
+    updateCSS();
+
+    const defaultSource = `package main
+
+func main() {
+  println("Hello, World!")
+}`;
+
+    const textArea = document.getElementById('source');
+    textArea.textContent = defaultSource;
+
     const runButton = document.getElementById('run');
     runButton.addEventListener('click', () => {
         runButton.disabled = true;
@@ -36,3 +47,14 @@ window.addEventListener('DOMContentLoaded', (e) => {
         });
     });
 });
+
+window.addEventListener('resize', (e) => {
+    updateCSS();
+});
+
+function updateCSS() {
+    // Trick to override vh unit for mobile platforms.
+    // See https://css-tricks.com/the-trick-to-viewport-units-on-mobile/
+    const vh = window.innerHeight * 0.01;
+    document.documentElement.style.setProperty('--vh', `${vh}px`);
+}

@@ -1,7 +1,21 @@
-<script src="./playground.js" type="module" defer></script>
-<button id="run">Run</button>
-<textarea id="source">package main
-
-func main() {
-  println("Hello, World!")
-}</textarea>
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Asobiba - A Go playground in WebAssembly</title>
+    <link rel="stylesheet" type="text/css" href="./playground.css">
+    <script src="./playground.js" type="module" defer></script>
+  </head>
+  <body>
+    <header>
+      <h1>Asobiba - A Go playground in WebAssembly</h1>
+      <button id="run">Run</button>
+    </header>
+    <main>
+      <textarea id="source"></textarea>
+    </main>
+    <footer>
+      <p>TBD: Stdout / Stderr here</p>
+    </footer>
+  </body>
+</html>
