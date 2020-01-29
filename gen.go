@@ -32,13 +32,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	os.Unsetenv("GOROOT")
 	if err := run(); err != nil {
 		panic(err)
 	}
 }
 
 func run() error {
+	// Reset GOROOT so that generating Go toolchain will not be affected by Go in GOROOT.
+	if err := os.Unsetenv("GOROOT"); err != nil {
+		return err
+	}
 	tmp, err := ioutil.TempDir("", "playground-")
 	if err != nil {
 		return err
