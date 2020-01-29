@@ -744,6 +744,7 @@ class GoInternal {
         await fs.initializeFiles();
         globalThis.fs = fs;
         globalThis.process = process;
+
         this.initialized_ = true;
     }
 
@@ -810,6 +811,8 @@ class GoInternal {
                 HOME:        '/root',
                 GOROOT:      '/go',
                 GO111MODULE: 'on',
+                GOPROXY:     'cache.greedo.xeserv.us', // The default GOPROXY doesn't work due to CORS.
+                GOSUMDB:     'off',                    // Ditto.
             };
 
             const origStdin = this.stdin_;

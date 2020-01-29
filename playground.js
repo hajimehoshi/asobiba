@@ -24,8 +24,7 @@ class Go {
                 command: ['go', 'run', '-x', 'main.go'],
                 files: {
                     'main.go': source,
-                    // Modules doesn't work due to CORS issue so far.
-                    // 'go.mod':  defaultGoMod,
+                    'go.mod':  defaultGoMod,
                 },
             });
         })
