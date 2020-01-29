@@ -1,6 +1,71 @@
 // Copyright 2020 Hajime Hoshi
 // SPDX-License-Identifier: Apache-2.0
 
+class Go {
+    constructor() {
+        this.stdoutBuf_ = '';
+        this.stdoutDecoder_ = new TextDecoder('utf-8');
+        this.stderrBuf_ = '';
+        this.stderrDecoder_ = new TextDecoder('utf-8');
+    }
+
+    run(source) {
+        return new Promise((resolve, reject) => {
+            const worker = new Worker('./go.js');
+            worker.addEventListener('message', this.onMessageFromWorker_(resolve, reject));
+            worker.postMessage({
+                command: ['go', 'run', '-x', 'main.go'],
+                files: {
+                    'main.go': source,
+                }
+            });
+        })
+    }
+
+    onMessageFromWorker_(resolve, reject) {
+        return (e) => {
+            let data = e.data;
+            switch (data.type) {
+            case 'stdout':
+                this.stdoutBuf_ += this.stdoutDecoder_.decode(data.body);
+                for (;;) {
+                    const n = this.stdoutBuf_.indexOf('\n');
+                    if (n < 0) {
+                        break;
+                    }
+                    console.log(this.stdoutBuf_.substring(0, n));
+                    this.stdoutBuf_ = this.stdoutBuf_.substring(n+1);
+                }
+                break;
+            case 'stderr':
+                this.stderrBuf_ += this.stderrDecoder_.decode(data.body);
+                for (;;) {
+                    const n = this.stderrBuf_.indexOf('\n');
+                    if (n < 0) {
+                        break;
+                    }
+                    console.warn(this.stderrBuf_.substring(0, n));
+                    this.stderrBuf_ = this.stderrBuf_.substring(n+1);
+                }
+                break;
+            case 'exit':
+                resolve();
+                break;
+            case 'debug':
+                const a = document.createElement('a');
+                const blob = new Blob([data.body], {type: 'application/octet-stream'});
+                a.href = URL.createObjectURL(blob);
+                a.setAttribute('download', data.name);
+                a.click();
+                break;
+            default:
+                console.error(`not implemented ${data.type}`);
+                break;
+            }
+        };
+    }
+}
+
 window.addEventListener('DOMContentLoaded', (e) => {
     updateCSS();
 
@@ -14,7 +79,7 @@ func main() {
     textArea.textContent = defaultSource;
 
     const runButton = document.getElementById('run');
-    runButton.addEventListener('click', () => {
+    runButton.addEventListener('click', async () => {
         runButton.disabled = true;
 
         // TODO: Split the source into multiple files. See https://play.golang.org/p/KLZR7NlVZNX
@@ -22,29 +87,9 @@ func main() {
         const src = textArea.textContent;
 
         const data = new TextEncoder().encode(src);
-        const worker = new Worker('./go.js');
-        worker.addEventListener('message', e => {
-            // TODO: Implement stdout/stderr.
-            let data = e.data;
-            switch (data.type) {
-            case 'debug':
-                const a = document.createElement('a');
-                const blob = new Blob([data.body], {type: 'application/octet-stream'});
-                a.href = URL.createObjectURL(blob);
-                a.setAttribute('download', data.name);
-                a.click();
-                break;
-            default:
-                console.error(`not implemented ${data.type}`);
-                break;
-            }
-        });
-        worker.postMessage({
-            command: ['go', 'run', '-x', 'main.go'],
-            files: {
-                'main.go': data,
-            }
-        });
+        const go = new Go();
+        await go.run(data);
+        runButton.disabled = false;
     });
 });
 

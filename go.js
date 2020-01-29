@@ -180,8 +180,8 @@ class FS {
         this.files_ = new Storage();
         this.fds_ = new Map();
         this.ps_ = ps;
-        this.writeSyncBuf_ = "";
-        this.decoder_ = new TextDecoder("utf-8");
+        this.writeSyncBuf_ = '';
+        this.decoder_ = new TextDecoder('utf-8');
     }
     
     async initializeFiles() {
@@ -728,10 +728,10 @@ class GoInternal {
         this.stdin_ = null;
         this.stdout_ = null;
         this.stderr_ = null;
-        this.stdoutBuf_ = "";
-        this.stdoutDecoder_ = new TextDecoder("utf-8");
-        this.stderrBuf_ = "";
-        this.stderrDecoder_ = new TextDecoder("utf-8");
+        this.stdoutBuf_ = '';
+        this.stdoutDecoder_ = new TextDecoder('utf-8');
+        this.stderrBuf_ = '';
+        this.stderrDecoder_ = new TextDecoder('utf-8');
         this.wasmModules_ = new Map();
     }
 
@@ -748,42 +748,16 @@ class GoInternal {
     }
 
     writeToStdout(buf) {
-        if (this.stdout_) {
-            const err = this.stdout_(buf);
-            if (err) {
-                throw err;
-            }
-            return;
-        }
-
-        this.stdoutBuf_ += this.stdoutDecoder_.decode(buf);
-        for (;;) {
-            const n = this.stdoutBuf_.indexOf('\n');
-            if (n < 0) {
-                break;
-            }
-            console.log(this.stdoutBuf_.substring(0, n));
-            this.stdoutBuf_ = this.stdoutBuf_.substring(n+1);
+        const err = this.stdout_(buf);
+        if (err) {
+            throw err;
         }
     }
 
     writeToStderr(buf) {
-        if (this.stderr_) {
-            const err = this.stderr_(buf);
-            if (err) {
-                throw err;
-            }
-            return;
-        }
-
-        this.stderrBuf_ += this.stderrDecoder_.decode(buf);
-        for (;;) {
-            const n = this.stderrBuf_.indexOf('\n');
-            if (n < 0) {
-                break;
-            }
-            console.warn(this.stderrBuf_.substring(0, n));
-            this.stderrBuf_ = this.stderrBuf_.substring(n+1);
+        const err = this.stderr_(buf);
+        if (err) {
+            throw err;
         }
     }
 
@@ -880,8 +854,27 @@ class GoInternal {
             }
             globalThis.process.chdir('/root');
 
-            this.execCommand('go', argv, {}, '', null, null, null).then(resolve).catch(reject).finally(async () => {
+            const stdout = (buf) => {
+                postMessage({
+                    type: 'stdout',
+                    body: buf,
+                });
+                return null;
+            };
+            const stderr = (buf) => {
+                postMessage({
+                    type: 'stderr',
+                    body: buf,
+                });
+                return null;
+            };
+
+            this.execCommand('go', argv, {}, '', null, stdout, stderr).then(resolve).catch(reject).finally(async () => {
                 await globalThis.fs.emptyDir_('/tmp');
+                postMessage({
+                    type: 'exit',
+                    // TODO: Add code
+                });
             });
         })
     }
