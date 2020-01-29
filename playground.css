@@ -36,3 +36,7 @@ aside {
     flex-grow: 0;
     width: 50%;
 }
+footer {
+    flex-grow: 0;
+    height: 48px;
+}
