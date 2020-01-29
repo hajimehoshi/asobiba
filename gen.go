@@ -47,13 +47,13 @@ func run() error {
 	if err := prepareGo(tmp); err != nil {
 		return err
 	}
-	if err := replaceFiles(tmp); err != nil {
-		return err
-	}
 	if err := copyWasmExecJs(tmp); err != nil {
 		return err
 	}
 	if err := genStdfiles(tmp); err != nil {
+		return err
+	}
+	if err := replaceFiles(tmp); err != nil {
 		return err
 	}
 	if err := genBins(tmp); err != nil {
