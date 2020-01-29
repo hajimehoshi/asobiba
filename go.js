@@ -14,23 +14,23 @@ class Storage {
         this.storage_ = new Map();
     }
 
-    has(path) {
+    async has(path) {
         return this.storage_.has(path);
     }
 
-    get(path) {
+    async get(path) {
         return this.storage_.get(path);
     }
 
-    set(path, value) {
+    async set(path, value) {
         this.storage_.set(path, value);
     }
 
-    delete(path) {
+    async delete(path) {
         this.storage_.delete(path);
     }
 
-    hasChildren(dir) {
+    async hasChildren(dir) {
         const result = [];
         for (const key of this.storage_.keys()) {
             if (key.startsWith(dir + '/')) {
@@ -40,7 +40,7 @@ class Storage {
         return false;
     }
 
-    childPaths(dir) {
+    async childPaths(dir) {
         const result = [];
         for (const key of this.storage_.keys()) {
             if (key === dir)
@@ -55,7 +55,7 @@ class Storage {
         return result;
     }
 
-    emptyDir(dir) {
+    async emptyDir(dir) {
         const path = dir + '/';
         for (const key of this.storage_.keys()) {
             if (!key.startsWith(path))
@@ -184,27 +184,27 @@ class FS {
     }
     
     async initializeFiles() {
-        this.files_.set('/', {
+        await this.files_.set('/', {
             directory: true,
         });
-        this.files_.set('/tmp', {
+        await this.files_.set('/tmp', {
             directory: true,
         });
-        this.files_.set('/dev', {
+        await this.files_.set('/dev', {
             directory: true,
         });
-        this.files_.set('/dev/null', {
+        await this.files_.set('/dev/null', {
         });
-        this.files_.set('/root', {
+        await this.files_.set('/root', {
             directory: true,
         });
         // GOPATH
-        this.files_.set('/root/go', {
+        await this.files_.set('/root/go', {
             directory: true,
         });
 
         const goroot = '/go'
-        this.files_.set(goroot, {
+        await this.files_.set(goroot, {
             directory: true,
         });
 
@@ -214,24 +214,24 @@ class FS {
         for (const filename of Object.keys(stdfiles)) {
             const fullfn = goroot + '/' + filename;
             const dir = fullfn.substring(0, fullfn.lastIndexOf('/'));
-            this.mkdirp_(dir);
-            this.files_.set(fullfn, {
+            await this.mkdirp_(dir);
+            await this.files_.set(fullfn, {
                 content: Uint8Array.from(atob(stdfiles[filename]), c => c.charCodeAt(0)),
             });
         }
 
         // Dummy files for tools
-        this.files_.set(goroot + '/pkg', {
+        await this.files_.set(goroot + '/pkg', {
             directory: true,
         });
-        this.files_.set(goroot + '/pkg/tool', {
+        await this.files_.set(goroot + '/pkg/tool', {
             directory: true,
         });
-        this.files_.set(goroot + '/pkg/tool/js_wasm', {
+        await this.files_.set(goroot + '/pkg/tool/js_wasm', {
             directory: true,
         });
         for (const tool of FS.tools()) {
-            this.files_.set(goroot + `/pkg/tool/js_wasm/${tool}`, {
+            await this.files_.set(goroot + `/pkg/tool/js_wasm/${tool}`, {
                 content: new Uint8Array(0),
             });
         }
@@ -275,7 +275,7 @@ class FS {
             return buf.byteLength;
         }
 
-        const file = this.files_.get(handle.path);
+        const file = await this.files_.get(handle.path);
         let content = file.content;
         let finalLength = content.byteLength;
         if (finalLength < position) {
@@ -305,7 +305,7 @@ class FS {
         content.set(buf, position)
 
         file.content = content;
-        this.files_.set(handle.path, file);
+        await this.files_.set(handle.path, file);
 
         return buf.byteLength;
     }
@@ -372,9 +372,9 @@ class FS {
     ftruncate(fd, length, callback) {
         (async() => {
             const handle = this.fds_.get(fd);
-            const file = this.files_.get(handle.path);
+            const file = await this.files_.get(handle.path);
             file.content = new Uint8Array(file.content.buffer, 0, length);
-            this.files_.set(this.fds_.get(fd).path, file);
+            await this.files_.set(this.fds_.get(fd).path, file);
             callback(null);
         })();
     }
@@ -398,7 +398,7 @@ class FS {
             path = FS.absPath(this.ps_.cwd(), path);
             const ds = FS.dirs(path);
             for (let i = 0; i < ds.length; i++) {
-                const file = this.files_.get(ds[i]);
+                const file = await this.files_.get(ds[i]);
                 if (!file) {
                     if (i !== ds.length - 1) {
                         const err = new Error('file exists');
@@ -415,7 +415,7 @@ class FS {
                     return;
                 }
             }
-            this.files_.set(path, {
+            await this.files_.set(path, {
                 directory: true,
             });
             callback(null);
@@ -425,21 +425,21 @@ class FS {
     open(path, flags, mode, callback) {
         (async() => {
             path = FS.absPath(this.ps_.cwd(), path);
-            if (!this.files_.has(path)) {
+            if (!await this.files_.has(path)) {
                 if (!(flags & this.constants.O_CREAT)) {
                     const err = new Error('no such file or directory');
                     err.code = 'ENOENT';
                     callback(err);
                     return;
                 }
-                this.files_.set(path, {
+                await this.files_.set(path, {
                     content:   new Uint8Array(0),
                     directory: false,
                 });
             }
 
             if (flags & this.constants.O_TRUNC) {
-                this.files_.set(path, {
+                await this.files_.set(path, {
                     content:   new Uint8Array(0),
                     directory: false,
                 });
@@ -447,7 +447,7 @@ class FS {
 
             let offset = 0;
             if (flags & this.constants.O_APPEND) {
-                offset = this.files_.get(path).content.byteLength;
+                offset = (await this.files_.get(path)).content.byteLength;
             }
             const fd = FD.nextFD();
             this.fds_.set(fd, new FD(fd, path, offset));
@@ -457,7 +457,7 @@ class FS {
 
     async pread_(fd, buffer, offset, length, position) {
         const handle = this.fds_.get(fd);
-        const file = this.files_.get(handle.path);
+        const file = await this.files_.get(handle.path);
         const content = file.content;
         let n = length;
         if (n > content.byteLength - position) {
@@ -516,7 +516,7 @@ class FS {
     readdir(path, callback) {
         (async() => {
             path = FS.absPath(this.ps_.cwd(), path);
-            const filenames = this.filenamesAt_(path);
+            const filenames = await this.filenamesAt_(path);
             callback(null, filenames);
         })();
     }
@@ -529,8 +529,8 @@ class FS {
         (async() => {
             from = FS.absPath(this.ps_.cwd(), from);
             to = FS.absPath(this.ps_.cwd(), to);
-            const fromFile = this.files_.get(from)
-            const toFile = this.files_.get(from)
+            const fromFile = await this.files_.get(from)
+            const toFile = await this.files_.get(from)
             if (!fromFile) {
                 const err = new Error('no such file or directory');
                 err.code = 'ENOENT';
@@ -545,8 +545,8 @@ class FS {
                 callback(enosys('rename'));
                 return;
             }
-            this.files_.set(to, fromFile)
-            this.files_.delete(from)
+            await this.files_.set(to, fromFile)
+            await this.files_.delete(from)
             callback(null);
         })();
     }
@@ -555,7 +555,7 @@ class FS {
         (async() => {
             // TODO: What if there exists a file handler to the directory?
             path = FS.absPath(this.ps_.cwd(), path);
-            const file = this.files_.get(path);
+            const file = await this.files_.get(path);
             if (!file) {
                 const err = new Error('no such file or directory');
                 err.code = 'ENOENT';
@@ -568,13 +568,13 @@ class FS {
                 callback(err);
                 return;
             }
-            if (this.files_.hasChildren(path)) {
+            if (await this.files_.hasChildren(path)) {
                 const err = new Error('directory not empty');
                 err.code = 'ENOTEMPTY';
                 callback(err);
                 return;
             }
-            this.files_.delete(path);
+            await this.files_.delete(path);
             callback(null);
         })();
     }
@@ -599,7 +599,7 @@ class FS {
         (async() => {
             // TODO: What if there exists a file handler to the file?
             path = FS.absPath(this.ps_.cwd(), path);
-            const file = this.files_.get(path);
+            const file = await this.files_.get(path);
             if (!file) {
                 const err = new Error('no such file or directory');
                 err.code = 'ENOENT';
@@ -612,7 +612,7 @@ class FS {
                 callback(err);
                 return;
             }
-            this.files_.delete(path);
+            await this.files_.delete(path);
             callback(null);
         })();
     }
@@ -620,24 +620,24 @@ class FS {
     utimes(path, atime, mtime, callback) {
         (async() => {
             path = FS.absPath(this.ps_.cwd(), path);
-            const file = this.files_.get(path);
+            const file = await this.files_.get(path);
             file.atime = atime;
             file.mtime = mtime;
-            this.files_.set(path, file);
+            await this.files_.set(path, file);
             callback(null);
         })();
     }
 
     async stat_(path, callback) {
         path = FS.absPath(this.ps_.cwd(), path);
-        if (!this.files_.has(path)) {
+        if (!await this.files_.has(path)) {
             const err = new Error('no such file or directory');
             err.code = 'ENOENT';
             callback(err);
             return;
         }
         let mode = 0;
-        const file = this.files_.get(path);
+        const file = await this.files_.get(path);
         if (file.directory) {
             mode |= FS.statModes.S_IFDIR;
         } else {
@@ -673,9 +673,9 @@ class FS {
         });
     }
 
-    mkdirp_(dir) {
+    async mkdirp_(dir) {
         for (const path of FS.dirs(dir)) {
-            const file = this.files_.get(path);
+            const file = await this.files_.get(path);
             if (file) {
                 if (file.directory) {
                     continue;
@@ -684,18 +684,18 @@ class FS {
                 err.code = 'EEXIST';
                 throw err;
             }
-            this.files_.set(path, {
+            await this.files_.set(path, {
                 directory: true,
             });
         }
     }
 
-    filenamesAt_(dir) {
-        return this.files_.childPaths(dir);
+    async filenamesAt_(dir) {
+        return await this.files_.childPaths(dir);
     }
 
-    emptyDir_(dir) {
-        this.files_.emptyDir(dir);
+    async emptyDir_(dir) {
+        await this.files_.emptyDir(dir);
     }
 }
 
@@ -785,7 +785,7 @@ class GoInternal {
     }
 
     execCommand(command, argv, env, dir, stdin, stdout, stderr) {
-        return new Promise((resolve, reject) => {
+        return new Promise(async (resolve, reject) => {
             // Polyfill
             let instantiateStreaming = WebAssembly.instantiateStreaming;
             if (!instantiateStreaming) {
@@ -803,8 +803,8 @@ class GoInternal {
                 wasmPath = `./bin/go${goversion}.wasm`;
             } else if (command === `/go/pkg/tool/js_wasm/${commandName}` && FS.tools().includes(commandName)) {
                 wasmPath = `./bin/${commandName}${goversion}.wasm`;
-            } else if (globalThis.fs.files_.has(command)) {
-                wasmContent = globalThis.fs.files_.get(command).content;
+            } else if (await globalThis.fs.files_.has(command)) {
+                wasmContent = (await globalThis.fs.files_.get(command)).content;
             } else {
                 reject(new Error('command not found: ' + command));
                 return;
@@ -849,8 +849,6 @@ class GoInternal {
                     resolve();
                 }).catch(e => {
                     defer();
-                    console.error("command failed: ", {command, 'argv': go.argv, 'env': go.env});
-                    console.error("  files in wd: ", globalThis.fs.filenamesAt_(globalThis.process.cwd()));
                     reject(e);
                 });
             });
@@ -863,14 +861,14 @@ class GoInternal {
 
             for (const filename of Object.keys(files)) {
                 const path = '/root/' + filename
-                globalThis.fs.files_.set(path, {
+                await globalThis.fs.files_.set(path, {
                     content: files[filename],
                 })
             }
             globalThis.process.chdir('/root');
 
-            this.execCommand('go', argv, {}, '', null, null, null).then(resolve).catch(reject).finally(() => {
-                globalThis.fs.emptyDir_('/tmp');
+            this.execCommand('go', argv, {}, '', null, null, null).then(resolve).catch(reject).finally(async () => {
+                await globalThis.fs.emptyDir_('/tmp');
             });
         })
     }
