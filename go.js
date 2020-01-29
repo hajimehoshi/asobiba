@@ -732,6 +732,7 @@ class GoInternal {
         this.stdoutDecoder_ = new TextDecoder("utf-8");
         this.stderrBuf_ = "";
         this.stderrDecoder_ = new TextDecoder("utf-8");
+        this.wasmModules_ = new Map();
     }
 
     async initializeGlobalVariablesIfNeeded() {
@@ -787,6 +788,11 @@ class GoInternal {
     }
 
     async wasmModule_(command) {
+        let wasmModule = this.wasmModules_.get(command);
+        if (wasmModule) {
+            return wasmModule;
+        }
+
         // Polyfill
         let compileStreaming = WebAssembly.compileStreaming;
         if (!compileStreaming) {
@@ -811,12 +817,12 @@ class GoInternal {
             return;
         }
 
-        let wasmModule = null;
         if (wasmPath) {
             wasmModule = await compileStreaming(fetch(wasmPath));
         } else {
             wasmModule = await WebAssembly.compile(wasmContent);
         }
+        this.wasmModules_.set(command, wasmModule);
         return wasmModule;
     }
 
