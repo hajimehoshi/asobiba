@@ -836,8 +836,17 @@ class GoInternal {
         return wasmModule;
     }
 
-    execCommand(command, argv, env, dir, stdin, stdout, stderr) {
+    execCommand(command, argv, env, dir, files, stdin, stdout, stderr) {
         return new Promise(async (resolve, reject) => {
+            if (files) {
+                for (const filename of Object.keys(files)) {
+                    const path = dir + '/' + filename;
+                    await globalThis.fs.files_.set(path, {
+                        content: files[filename],
+                    });
+                }
+            }
+
             const wasmModule = await this.wasmModule_(command);
             const go = new Go();
             const wasmInstance = await WebAssembly.instantiate(wasmModule, go.importObject)
@@ -884,14 +893,6 @@ class GoInternal {
         return new Promise(async (resolve, reject) => {
             await this.initializeGlobalVariablesIfNeeded();
 
-            for (const filename of Object.keys(files)) {
-                const path = '/root/' + filename
-                await globalThis.fs.files_.set(path, {
-                    content: files[filename],
-                });
-            }
-            globalThis.process.chdir('/root');
-
             const stdout = (buf) => {
                 postMessage({
                     type: 'stdout',
@@ -907,7 +908,7 @@ class GoInternal {
                 return null;
             };
 
-            this.execCommand('go', argv, {}, '', null, stdout, stderr).then(resolve).catch(reject).finally(async () => {
+            this.execCommand('go', argv, {}, '/root', files, null, stdout, stderr).then(resolve).catch(reject).finally(async () => {
                 await globalThis.fs.emptyDir_('/tmp');
                 postMessage({
                     type: 'exit',
