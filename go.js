@@ -836,86 +836,82 @@ class GoInternal {
         return wasmModule;
     }
 
-    execCommand(command, argv, env, dir, files, stdin, stdout, stderr) {
-        return new Promise(async (resolve, reject) => {
-            if (files) {
-                for (const filename of Object.keys(files)) {
-                    const path = dir + '/' + filename;
-                    await globalThis.fs.files_.set(path, {
-                        content: files[filename],
-                    });
-                }
+    async execCommand(command, argv, env, dir, files, stdin, stdout, stderr) {
+        await this.initializeGlobalVariablesIfNeeded();
+
+        if (files) {
+            for (const filename of Object.keys(files)) {
+                const path = dir + '/' + filename;
+                await globalThis.fs.files_.set(path, {
+                    content: files[filename],
+                });
             }
+        }
 
-            const wasmModule = await this.wasmModule_(command);
-            const go = new Go();
-            const wasmInstance = await WebAssembly.instantiate(wasmModule, go.importObject)
-            const defaultEnv = {
-                TMPDIR:      '/tmp',
-                HOME:        '/root',
-                GOROOT:      '/go',
-                GO111MODULE: 'on',
-                GOPROXY:     'cache.greedo.xeserv.us', // The default GOPROXY doesn't work due to CORS.
-                GOSUMDB:     'off',                    // Ditto.
-            };
+        const wasmModule = await this.wasmModule_(command);
+        const go = new Go();
+        const wasmInstance = await WebAssembly.instantiate(wasmModule, go.importObject)
+        const defaultEnv = {
+            TMPDIR:      '/tmp',
+            HOME:        '/root',
+            GOROOT:      '/go',
+            GO111MODULE: 'on',
+            GOPROXY:     'cache.greedo.xeserv.us', // The default GOPROXY doesn't work due to CORS.
+            GOSUMDB:     'off',                    // Ditto.
+        };
 
-            const origStdin = this.stdin_;
-            const origStdout = this.stdout_;
-            const origStderr = this.stderr_;
-            this.stdin_ = stdin;
-            this.stdout_ = stdout;
-            this.stderr_ = stderr;
-            const origCwd = globalThis.process.cwd();
-            if (dir) {
-                globalThis.process.chdir(dir);
-            }
-            const defer = () => {
-                globalThis.process.chdir(origCwd);
-                this.stdin_ = origStdin;
-                this.stdout_ = origStdout;
-                this.stderr_ = origStderr;
-            };
+        const origStdin = this.stdin_;
+        const origStdout = this.stdout_;
+        const origStderr = this.stderr_;
+        this.stdin_ = stdin;
+        this.stdout_ = stdout;
+        this.stderr_ = stderr;
+        const origCwd = globalThis.process.cwd();
+        if (dir) {
+            globalThis.process.chdir(dir);
+        }
+        const defer = () => {
+            globalThis.process.chdir(origCwd);
+            this.stdin_ = origStdin;
+            this.stdout_ = origStdout;
+            this.stderr_ = origStderr;
+        };
 
-            const commandName = command.split('/').pop();
-            go.argv = [commandName].concat(argv || []);
-            go.env = {...go.env, ...defaultEnv, ...env};
-            go.run(wasmInstance).then(() => {
-                defer();
-                resolve();
-            }).catch(e => {
-                defer();
-                reject(e);
-            });
-        })
+        const commandName = command.split('/').pop();
+        go.argv = [commandName].concat(argv || []);
+        go.env = {...go.env, ...defaultEnv, ...env};
+        try {
+            await go.run(wasmInstance);
+        } finally {
+            defer();
+        }
     }
 
-    execGo(argv, files) {
-        return new Promise(async (resolve, reject) => {
-            await this.initializeGlobalVariablesIfNeeded();
-
-            const stdout = (buf) => {
-                postMessage({
-                    type: 'stdout',
-                    body: buf,
-                });
-                return null;
-            };
-            const stderr = (buf) => {
-                postMessage({
-                    type: 'stderr',
-                    body: buf,
-                });
-                return null;
-            };
-
-            this.execCommand('go', argv, {}, '/root', files, null, stdout, stderr).then(resolve).catch(reject).finally(async () => {
-                await globalThis.fs.emptyDir_('/tmp');
-                postMessage({
-                    type: 'exit',
-                    // TODO: Add code
-                });
+    async execGo(argv, files) {
+        const stdout = (buf) => {
+            postMessage({
+                type: 'stdout',
+                body: buf,
             });
-        })
+            return null;
+        };
+        const stderr = (buf) => {
+            postMessage({
+                type: 'stderr',
+                body: buf,
+            });
+            return null;
+        };
+
+        try {
+            await this.execCommand('go', argv, {}, '/root', files, null, stdout, stderr);
+            await globalThis.fs.emptyDir_('/tmp');
+        } finally {
+            postMessage({
+                type: 'exit',
+                // TODO: Add code
+            });
+        }
     }
 }
 
