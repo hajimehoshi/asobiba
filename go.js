@@ -43,13 +43,16 @@ class Storage {
     async childPaths(dir) {
         const result = [];
         for (const key of this.storage_.keys()) {
-            if (key === dir)
+            if (key === dir) {
                 continue;
-            if (!key.startsWith(dir))
+            }
+            if (!key.startsWith(dir)) {
                 continue;
+            }
             const filename = key.substring(dir.length+1);
-            if (filename.indexOf('/') >= 0)
+            if (filename.indexOf('/') >= 0) {
                 continue;
+            }
             result.push(filename);
         }
         return result;
@@ -58,8 +61,22 @@ class Storage {
     async emptyDir(dir) {
         const path = dir + '/';
         for (const key of this.storage_.keys()) {
-            if (!key.startsWith(path))
+            if (!key.startsWith(path)) {
                 continue;
+            }
+            this.storage_.delete(key);
+        }
+    }
+
+    async renameDir(from, to) {
+        console.log('renaming', from, to);
+        for (const key of this.storage_.keys()) {
+            if (!key.startsWith(from)) {
+                continue;
+            }
+            const newPath = to + key.substring(from.length);
+            console.log(key, '->', newPath);
+            this.storage_.set(newPath, this.storage_.get(key));
             this.storage_.delete(key);
         }
     }
@@ -537,8 +554,26 @@ class FS {
                 callback(err);
                 return;
             }
+            // TODO: What about file handlers when deleting the original files?
             if (fromFile.directory) {
-                callback(enosys('rename'));
+                if (!toFile) {
+                    await this.files._renameDir(from, to);
+                    return;
+                }
+                if (!toFile.directory) {
+                    const err = new Error('not a directory');
+                    err.code = 'ENOTDIR';
+                    callback(err);
+                    return;
+                }
+                if (await this.files_.hasChildren(to)) {
+                    const err = new Error('directory not empty');
+                    err.code = 'ENOTEMPTY';
+                    callback(err);
+                    return;
+                }
+                await this.files_.delete(to);
+                await this.files_.renameDir(from, to);
                 return;
             }
             if (toFile.directory) {
