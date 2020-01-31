@@ -945,7 +945,11 @@ addEventListener('message', async (e) => {
         }
         if (e.data.outputFiles) {
             for (const filename of e.data.outputFiles) {
-                const content = (await globalThis.fs.get_(dir + '/' + filename)).content;
+                const file = await globalThis.fs.get_(dir + '/' + filename);
+                if (!file) {
+                    continue;
+                }
+                const content = file.content;
                 postMessage({
                     type: 'outputFile',
                     name: filename,

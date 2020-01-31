@@ -160,12 +160,12 @@ func main() {
             try {
                 wasm = await gc.build(data);
             } catch (code) {
-                gc.writeToStderr(new TextEncoder('utf-8').encode(`exit code: ${code}\n`));
+                printer.writeToStderr(new TextEncoder('utf-8').encode(`exit code: ${code}\n`));
             }
             const go = new Go();
             go.exit = (code) => {
                 if (code !== 0) {
-                    gc.writeToStderr(new TextEncoder('utf-8').encode(`exit code: ${code}\n`));
+                    printer.writeToStderr(new TextEncoder('utf-8').encode(`exit code: ${code}\n`));
                 }
             }
 
@@ -188,6 +188,9 @@ func main() {
                 callback(enosys());
             }
 
+            if (!wasm) {
+                return;
+            }
             const instance = (await WebAssembly.instantiate(wasm, go.importObject)).instance;
             await go.run(instance);
         } finally {
