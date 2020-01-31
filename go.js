@@ -147,6 +147,9 @@ class FS {
             return path
         }
 
+        // Remove duplicatd slashes. This can be passed from the Go world.
+        path = path.replace(/\/+/g, '/');
+
         if (path[0] === '/') {
             path = removeLastSlash(path);
             return path;
