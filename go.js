@@ -71,7 +71,7 @@ class Storage {
                 continue;
             }
             const newPath = to + key.substring(from.length);
-            this.storage_[newPath] = this.storage_.get(key);
+            this.storage_[newPath] = this.storage_[key];
             delete(this.storage_[key]);
         }
     }
