@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import './wasm_exec.js';
+import { Base64 } from './base64.js';
 
 class Printer {
     constructor() {
@@ -129,8 +130,14 @@ class GoCompiler {
     }
 }
 
-window.addEventListener('DOMContentLoaded', (e) => {
+window.addEventListener('DOMContentLoaded', async (e) => {
     updateCSS();
+
+    const lzStringPromise = new Promise(async (resolve, reject) => {
+        const geval = eval;
+        geval(await (await fetch('./lz-string.min.js')).text());
+        resolve(LZString);
+    });
 
     const defaultSource = `package main
 
@@ -141,6 +148,18 @@ func main() {
 }`;
 
     const textArea = document.getElementById('source');
+    const url = new URL(window.location);
+    const search = url.searchParams;
+    if (search.has('src')) {
+        try {
+            const compressed = Base64.atob(search.get('src'));
+            const src = (await lzStringPromise).decompress(compressed);
+            textArea.value = src;
+        } catch (e) {
+            // Incorrect input.
+            console.error(e);
+        }
+    }
     if (!textArea.value) {
         textArea.value = defaultSource;
     }
@@ -201,6 +220,18 @@ func main() {
         } finally {
             runButton.disabled = false;
         }
+    });
+
+    const shareButton = document.getElementById('share');
+    shareButton.addEventListener('click', async () => {
+        const textArea = document.getElementById('source');
+        const src = textArea.value;
+        const compressed = (await lzStringPromise).compress(src);
+        const url = new URL(window.location);
+        const search = url.searchParams;
+        search.set('src', Base64.btoa(compressed));
+        url.search = search.toString();
+        history.replaceState(undefined, undefined, url);
     });
 });
 
