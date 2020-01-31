@@ -14,10 +14,6 @@ class Storage {
         this.storage_ = new Map();
     }
 
-    async has(path) {
-        return this.storage_.has(path);
-    }
-
     async get(path) {
         return this.storage_.get(path);
     }
@@ -442,7 +438,7 @@ class FS {
     open(path, flags, mode, callback) {
         (async() => {
             path = FS.absPath(this.ps_.cwd(), path);
-            if (!await this.files_.has(path)) {
+            if (!await this.files_.get(path)) {
                 if (!(flags & this.constants.O_CREAT)) {
                     const err = new Error('no such file or directory');
                     err.code = 'ENOENT';
@@ -665,14 +661,14 @@ class FS {
 
     async stat_(path, callback) {
         path = FS.absPath(this.ps_.cwd(), path);
-        if (!await this.files_.has(path)) {
+        const file = await this.files_.get(path);
+        if (!file) {
             const err = new Error('no such file or directory');
             err.code = 'ENOENT';
             callback(err);
             return;
         }
         let mode = 0;
-        const file = await this.files_.get(path);
         if (file.directory) {
             mode |= FS.statModes.S_IFDIR;
         } else {
@@ -820,11 +816,14 @@ class GoInternal {
             wasmPath = `./bin/go${goversion}.wasm`;
         } else if (command === `/go/pkg/tool/js_wasm/${commandName}` && FS.tools().includes(commandName)) {
             wasmPath = `./bin/${commandName}${goversion}.wasm`;
-        } else if (await globalThis.fs.files_.has(command)) {
-            wasmContent = (await globalThis.fs.files_.get(command)).content;
         } else {
-            reject(new Error('command not found: ' + command));
-            return;
+            const bin = await globalThis.fs.files_.get(command);
+            if (bin) {
+                wasmContent = bin.content;
+            } else {
+                reject(new Error('command not found: ' + command));
+                return;
+            }
         }
 
         if (wasmPath) {
