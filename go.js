@@ -884,33 +884,6 @@ class GoInternal {
             defer();
         }
     }
-
-    async execGo(argv, files) {
-        const stdout = (buf) => {
-            postMessage({
-                type: 'stdout',
-                body: buf,
-            });
-            return null;
-        };
-        const stderr = (buf) => {
-            postMessage({
-                type: 'stderr',
-                body: buf,
-            });
-            return null;
-        };
-
-        try {
-            await this.execCommand('go', argv, {}, '/root', files, null, stdout, stderr);
-            await globalThis.fs.emptyDir_('/tmp');
-        } finally {
-            postMessage({
-                type: 'exit',
-                // TODO: Add code
-            });
-        }
-    }
 }
 
 addEventListener('message', async (e) => {
@@ -927,12 +900,37 @@ addEventListener('message', async (e) => {
     geval(await (await fetch('./wasm_exec.js')).text());
     globalThis.goInternal_ = new GoInternal();
 
-    const cmd = e.data.command[0];
-    switch (cmd) {
-    case 'go':
-        await globalThis.goInternal_.execGo(e.data.command.slice(1), e.data.files);
-        break;
-    default:
-        throw new Error(`command ${cmd} not supported`);
+    const stdout = (buf) => {
+        postMessage({
+            type: 'stdout',
+            body: buf,
+        });
+        return null;
+    };
+    const stderr = (buf) => {
+        postMessage({
+            type: 'stderr',
+            body: buf,
+        });
+        return null;
+    };
+
+    try {
+        const cmd = e.data.command[0];
+        switch (cmd) {
+        case 'go':
+            const argv = e.data.command.slice(1);
+            const files = e.data.files;
+            await globalThis.goInternal_.execCommand('go', argv, {}, '/root', files, null, stdout, stderr);
+            await globalThis.fs.emptyDir_('/tmp');
+            break;
+        default:
+            throw new Error(`command ${cmd} not supported`);
+        }
+    } finally {
+        postMessage({
+            type: 'exit',
+            // TODO: Add code
+        });
     }
 });
