@@ -19,7 +19,7 @@ class Go {
             const defaultGoMod = new TextEncoder().encode(`module asobiba`);
 
             const worker = new Worker('./go.js');
-            worker.addEventListener('message', this.onMessageFromWorker_(resolve, reject));
+            worker.addEventListener('message', this.onMessageFromWorker_(worker, resolve, reject));
             worker.postMessage({
                 command: ['go', 'run', '-x', 'main.go'],
                 files: {
@@ -30,7 +30,7 @@ class Go {
         })
     }
 
-    onMessageFromWorker_(resolve, reject) {
+    onMessageFromWorker_(worker, resolve, reject) {
         return (e) => {
             let data = e.data;
             switch (data.type) {
@@ -78,6 +78,7 @@ class Go {
                 break;
             case 'exit':
                 resolve();
+                worker.terminate();
                 break;
             case 'debug':
                 const a = document.createElement('a');
