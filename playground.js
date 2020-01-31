@@ -191,8 +191,13 @@ func main() {
             if (!wasm) {
                 return;
             }
-            const instance = (await WebAssembly.instantiate(wasm, go.importObject)).instance;
-            await go.run(instance);
+            try {
+                const instance = (await WebAssembly.instantiate(wasm, go.importObject)).instance;
+                await go.run(instance);
+            } catch (e) {
+                // e.g., If the source is not a main package, instantiation fails.
+                printer.writeToStderr(new TextEncoder('utf-8').encode(e.message + '\n'));
+            }
         } finally {
             runButton.disabled = false;
         }
