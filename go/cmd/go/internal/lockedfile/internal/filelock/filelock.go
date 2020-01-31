@@ -48,7 +48,7 @@ func Unlock(f File) error {
 }
 
 type File interface {
-    Name() string
-    Fd() uintptr
-    Stat() (os.FileInfo, error)
+	Name() string
+	Fd() uintptr
+	Stat() (os.FileInfo, error)
 }

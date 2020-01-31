@@ -6,9 +6,9 @@
 package main
 
 import (
-	"flag"
 	"encoding/base64"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -71,7 +71,7 @@ const (
 )
 
 func prepareGo(tmp string) error {
-	if (*flagDir != "") {
+	if *flagDir != "" {
 		fmt.Printf("Copying %s\n", *flagDir)
 		cmd := exec.Command("cp", "-r", *flagDir, filepath.Join(tmp, "go"))
 		cmd.Stderr = os.Stderr
@@ -163,7 +163,7 @@ func replaceFiles(tmp string) error {
 			}
 		}
 	}
-	
+
 	return nil
 }
 
