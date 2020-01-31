@@ -879,10 +879,16 @@ class GoInternal {
         const commandName = command.split('/').pop();
         go.argv = [commandName].concat(argv || []);
         go.env = {...go.env, ...defaultEnv, ...env};
+        const promise = new Promise((resolve, reject) => {
+            go.exit = (code) => {
+                resolve(code);
+            }
+        });
         try {
             await go.run(wasmInstance);
         } finally {
             defer();
+            return await promise;
         }
     }
 }
@@ -916,13 +922,14 @@ addEventListener('message', async (e) => {
         return null;
     };
 
+    let code = 0;
     try {
         const cmd = e.data.command[0];
         switch (cmd) {
         case 'go':
             const argv = e.data.command.slice(1);
             const files = e.data.files;
-            await globalThis.goInternal_.execCommand('go', argv, {}, '/root', files, null, stdout, stderr);
+            code = await globalThis.goInternal_.execCommand('go', argv, {}, '/root', files, null, stdout, stderr);
             await globalThis.fs.emptyDir_('/tmp');
             break;
         default:
@@ -931,7 +938,7 @@ addEventListener('message', async (e) => {
     } finally {
         postMessage({
             type: 'exit',
-            // TODO: Add code
+            code: code,
         });
     }
 });

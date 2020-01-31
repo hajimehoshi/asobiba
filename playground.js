@@ -31,55 +31,68 @@ class Go {
         })
     }
 
+    writeToStdout(buf) {
+        this.stdoutBuf_ += this.stdoutDecoder_.decode(buf);
+        for (;;) {
+            const n = this.stdoutBuf_.indexOf('\n');
+            if (n < 0) {
+                break;
+            }
+            const span = document.createElement('span');
+            span.classList.add('stdout');
+            span.textContent = this.stdoutBuf_.substring(0, n+1);
+
+            const scrollable = this.output_.parentElement;
+            const tracking = scrollable.scrollHeight - scrollable.scrollTop === scrollable.clientHeight;
+            this.output_.appendChild(span);
+            if (tracking) {
+                scrollable.scroll(0, scrollable.scrollHeight);
+            }
+
+            this.stdoutBuf_ = this.stdoutBuf_.substring(n+1);
+        }
+    }
+
+    writeToStderr(buf) {
+        this.stderrBuf_ += this.stderrDecoder_.decode(buf);
+        for (;;) {
+            const n = this.stderrBuf_.indexOf('\n');
+            if (n < 0) {
+                break;
+            }
+            const span = document.createElement('span');
+            span.classList.add('stderr');
+            span.textContent = this.stderrBuf_.substring(0, n+1);
+
+            const scrollable = this.output_.parentElement;
+            const tracking = scrollable.scrollHeight - scrollable.scrollTop === scrollable.clientHeight;
+            this.output_.appendChild(span);
+            if (tracking) {
+                scrollable.scroll(0, scrollable.scrollHeight);
+            }
+
+            this.stderrBuf_ = this.stderrBuf_.substring(n+1);
+        }
+    }
+
     onMessageFromWorker_(worker, resolve, reject) {
         return (e) => {
             let data = e.data;
             switch (data.type) {
             case 'stdout':
-                this.stdoutBuf_ += this.stdoutDecoder_.decode(data.body);
-                for (;;) {
-                    const n = this.stdoutBuf_.indexOf('\n');
-                    if (n < 0) {
-                        break;
-                    }
-                    const span = document.createElement('span');
-                    span.classList.add('stdout');
-                    span.textContent = this.stdoutBuf_.substring(0, n+1);
-
-                    const scrollable = this.output_.parentElement;
-                    const tracking = scrollable.scrollHeight - scrollable.scrollTop === scrollable.clientHeight;
-                    this.output_.appendChild(span);
-                    if (tracking) {
-                        scrollable.scroll(0, scrollable.scrollHeight);
-                    }
-
-                    this.stdoutBuf_ = this.stdoutBuf_.substring(n+1);
-                }
+                this.writeToStdout(data.body);
                 break;
             case 'stderr':
-                this.stderrBuf_ += this.stderrDecoder_.decode(data.body);
-                for (;;) {
-                    const n = this.stderrBuf_.indexOf('\n');
-                    if (n < 0) {
-                        break;
-                    }
-                    const span = document.createElement('span');
-                    span.classList.add('stderr');
-                    span.textContent = this.stderrBuf_.substring(0, n+1);
-
-                    const scrollable = this.output_.parentElement;
-                    const tracking = scrollable.scrollHeight - scrollable.scrollTop === scrollable.clientHeight;
-                    this.output_.appendChild(span);
-                    if (tracking) {
-                        scrollable.scroll(0, scrollable.scrollHeight);
-                    }
-
-                    this.stderrBuf_ = this.stderrBuf_.substring(n+1);
-                }
+                this.writeToStderr(data.body);
                 break;
             case 'exit':
-                resolve();
                 worker.terminate();
+                const code = e.data.code;
+                if (code === 0) {
+                    resolve();
+                } else {
+                    reject(code);
+                }
                 break;
             case 'debug':
                 const a = document.createElement('a');
@@ -121,8 +134,13 @@ func main() {
         const src = textArea.value;
         const data = new TextEncoder().encode(src);
         const go = new Go();
-        await go.run(data);
-        runButton.disabled = false;
+        try {
+            await go.run(data);
+        } catch (code) {
+            go.writeToStderr(new TextEncoder('utf-8').encode(`exit code: ${code}\n`));
+        } finally {
+            runButton.disabled = false;
+        }
     });
 });
 
