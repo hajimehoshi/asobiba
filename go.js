@@ -65,7 +65,6 @@ class Storage {
     }
 
     async renameDir(from, to) {
-        console.log('renaming', from, to);
         for (const key of Object.keys(this.storage_)) {
             if (!key.startsWith(from)) {
                 continue;
