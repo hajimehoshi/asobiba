@@ -1,7 +1,9 @@
 // Copyright 2020 Hajime Hoshi
 // SPDX-License-Identifier: Apache-2.0
 
-class Go {
+import './wasm_exec.js';
+
+class GoCompiler {
     constructor() {
         this.stdoutBuf_ = '';
         this.stdoutDecoder_ = new TextDecoder('utf-8');
@@ -14,7 +16,7 @@ class Go {
         }
     }
 
-    run(source) {
+    build(source) {
         return new Promise((resolve, reject) => {
             const defaultGoMod = new TextEncoder().encode(`module asobiba`);
 
@@ -22,11 +24,12 @@ class Go {
             worker.addEventListener('message', this.onMessageFromWorker_(worker, resolve, reject));
             worker.addEventListener('error', reject);
             worker.postMessage({
-                command: ['go', 'run', '-x', 'main.go'],
+                command: ['go', 'build', '-x', '-o', 'main.wasm', 'main.go'],
                 files: {
                     'main.go': source,
                     'go.mod':  defaultGoMod,
                 },
+                outputFiles: ['main.wasm'],
             });
         })
     }
@@ -85,11 +88,16 @@ class Go {
             case 'stderr':
                 this.writeToStderr(data.body);
                 break;
+            case 'outputFile':
+                if (e.data.name === 'main.wasm') {
+                    this.result_ = e.data.body;
+                }
+                break;
             case 'exit':
                 worker.terminate();
                 const code = e.data.code;
                 if (code === 0) {
-                    resolve();
+                    resolve(this.result_);
                 } else {
                     reject(code);
                 }
@@ -102,7 +110,7 @@ class Go {
                 a.click();
                 break;
             default:
-                console.error(`not implemented ${data.type}`);
+                throw new Error(`not implemented ${data.type}`);
                 break;
             }
         };
@@ -130,14 +138,45 @@ func main() {
         runButton.disabled = true;
 
         // TODO: Split the source into multiple files. See https://play.golang.org/p/KLZR7NlVZNX
-        const textArea = document.getElementById('source');
-        const src = textArea.value;
-        const data = new TextEncoder().encode(src);
-        const go = new Go();
         try {
-            await go.run(data);
-        } catch (code) {
-            go.writeToStderr(new TextEncoder('utf-8').encode(`exit code: ${code}\n`));
+            const textArea = document.getElementById('source');
+            const src = textArea.value;
+            const data = new TextEncoder().encode(src);
+            const gc = new GoCompiler();
+            let wasm = null;
+            try {
+                wasm = await gc.build(data);
+            } catch (code) {
+                gc.writeToStderr(new TextEncoder('utf-8').encode(`exit code: ${code}\n`));
+            }
+            const go = new Go();
+            go.exit = (code) => {
+                if (code !== 0) {
+                    gc.writeToStderr(new TextEncoder('utf-8').encode(`exit code: ${code}\n`));
+                }
+            }
+
+            // Rewrite stdout/stderr.
+            globalThis.fs.write = (fd, buf, offset, length, position, callback) => {
+                if (offset !== 0 || length !== buf.length || position !== null) {
+		    callback(enosys());
+		    return;
+		}
+                switch (fd) {
+                case 1:
+                    gc.writeToStdout(buf);
+                    callback(null, buf.length);
+                    return;
+                case 2:
+                    gc.writeToStderr(buf);
+                    callback(null, buf.length);
+                    return;
+                }
+                callback(enosys());
+            }
+
+            const instance = (await WebAssembly.instantiate(wasm, go.importObject)).instance;
+            await go.run(instance);
         } finally {
             runButton.disabled = false;
         }

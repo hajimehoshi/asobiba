@@ -731,6 +731,10 @@ class FS {
     async emptyDir_(dir) {
         await this.files_.emptyDir(dir);
     }
+
+    async get_(path) {
+        return await this.files_.get(path);
+    }
 }
 
 class Process {
@@ -898,7 +902,7 @@ class GoInternal {
 
 addEventListener('message', async (e) => {
     if (globalThis.started_) {
-        throw new Error('go.js can be called only once');
+        throw new Error('compiler.js can be called only once');
     }
     globalThis.started_ = true;
 
@@ -926,17 +930,28 @@ addEventListener('message', async (e) => {
     };
 
     let code = 0;
+    const dir = '/root';
     try {
         const cmd = e.data.command[0];
         switch (cmd) {
         case 'go':
             const argv = e.data.command.slice(1);
             const files = e.data.files;
-            code = await globalThis.goInternal_.execCommand('go', argv, {}, '/root', files, null, stdout, stderr);
+            code = await globalThis.goInternal_.execCommand('go', argv, {}, dir, files, null, stdout, stderr);
             await globalThis.fs.emptyDir_('/tmp');
             break;
         default:
             throw new Error(`command ${cmd} not supported`);
+        }
+        if (e.data.outputFiles) {
+            for (const filename of e.data.outputFiles) {
+                const content = (await globalThis.fs.get_(dir + '/' + filename)).content;
+                postMessage({
+                    type: 'outputFile',
+                    name: filename,
+                    body: content,
+                }, content.buffer);
+            }
         }
     } finally {
         postMessage({
