@@ -3,7 +3,7 @@
 
 import './wasm_exec.js';
 
-class GoCompiler {
+class Printer {
     constructor() {
         this.stdoutBuf_ = '';
         this.stdoutDecoder_ = new TextDecoder('utf-8');
@@ -14,24 +14,6 @@ class GoCompiler {
         while (this.output_.firstChild) {
             this.output_.firstChild.remove();
         }
-    }
-
-    build(source) {
-        return new Promise((resolve, reject) => {
-            const defaultGoMod = new TextEncoder().encode(`module asobiba`);
-
-            const worker = new Worker('./go.js');
-            worker.addEventListener('message', this.onMessageFromWorker_(worker, resolve, reject));
-            worker.addEventListener('error', reject);
-            worker.postMessage({
-                command: ['go', 'build', '-x', '-o', 'main.wasm', 'main.go'],
-                files: {
-                    'main.go': source,
-                    'go.mod':  defaultGoMod,
-                },
-                outputFiles: ['main.wasm'],
-            });
-        })
     }
 
     writeToStdout(buf) {
@@ -77,16 +59,40 @@ class GoCompiler {
             this.stderrBuf_ = this.stderrBuf_.substring(n+1);
         }
     }
+}
+
+class GoCompiler {
+    constructor(printer) {
+        this.printer_ = printer;
+    }
+
+    build(source) {
+        return new Promise((resolve, reject) => {
+            const defaultGoMod = new TextEncoder().encode(`module asobiba`);
+
+            const worker = new Worker('./go.js');
+            worker.addEventListener('message', this.onMessageFromWorker_(worker, resolve, reject));
+            worker.addEventListener('error', reject);
+            worker.postMessage({
+                command: ['go', 'build', '-x', '-o', 'main.wasm', 'main.go'],
+                files: {
+                    'main.go': source,
+                    'go.mod':  defaultGoMod,
+                },
+                outputFiles: ['main.wasm'],
+            });
+        })
+    }
 
     onMessageFromWorker_(worker, resolve, reject) {
         return (e) => {
             let data = e.data;
             switch (data.type) {
             case 'stdout':
-                this.writeToStdout(data.body);
+                this.printer_.writeToStdout(data.body);
                 break;
             case 'stderr':
-                this.writeToStderr(data.body);
+                this.printer_.writeToStderr(data.body);
                 break;
             case 'outputFile':
                 if (e.data.name === 'main.wasm') {
@@ -136,13 +142,14 @@ func main() {
     const runButton = document.getElementById('run');
     runButton.addEventListener('click', async () => {
         runButton.disabled = true;
+        const printer = new Printer();
 
         // TODO: Split the source into multiple files. See https://play.golang.org/p/KLZR7NlVZNX
         try {
             const textArea = document.getElementById('source');
             const src = textArea.value;
             const data = new TextEncoder().encode(src);
-            const gc = new GoCompiler();
+            const gc = new GoCompiler(printer);
             let wasm = null;
             try {
                 wasm = await gc.build(data);
@@ -164,11 +171,11 @@ func main() {
 		}
                 switch (fd) {
                 case 1:
-                    gc.writeToStdout(buf);
+                    printer.writeToStdout(buf);
                     callback(null, buf.length);
                     return;
                 case 2:
-                    gc.writeToStderr(buf);
+                    printer.writeToStderr(buf);
                     callback(null, buf.length);
                     return;
                 }
