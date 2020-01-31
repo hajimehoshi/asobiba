@@ -28,6 +28,12 @@ body {
 .stderr {
     color: #c33;
 }
+.stdout.subprocess {
+    color: #999;
+}
+.stderr.subprocess {
+    color: #c99;
+}
 
 /* flex */
 body {

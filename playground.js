@@ -16,7 +16,7 @@ class Printer {
         }
     }
 
-    writeToStdout(buf) {
+    writeToStdout(buf, subprocess) {
         this.stdoutBuf_ += this.stdoutDecoder_.decode(buf);
         for (;;) {
             const n = this.stdoutBuf_.indexOf('\n');
@@ -25,6 +25,9 @@ class Printer {
             }
             const span = document.createElement('span');
             span.classList.add('stdout');
+            if (subprocess) {
+                span.classList.add('subprocess');
+            }
             span.textContent = this.stdoutBuf_.substring(0, n+1);
 
             const scrollable = this.output_.parentElement;
@@ -38,7 +41,7 @@ class Printer {
         }
     }
 
-    writeToStderr(buf) {
+    writeToStderr(buf, subprocess) {
         this.stderrBuf_ += this.stderrDecoder_.decode(buf);
         for (;;) {
             const n = this.stderrBuf_.indexOf('\n');
@@ -47,6 +50,9 @@ class Printer {
             }
             const span = document.createElement('span');
             span.classList.add('stderr');
+            if (subprocess) {
+                span.classList.add('subprocess');
+            }
             span.textContent = this.stderrBuf_.substring(0, n+1);
 
             const scrollable = this.output_.parentElement;
@@ -89,10 +95,10 @@ class GoCompiler {
             let data = e.data;
             switch (data.type) {
             case 'stdout':
-                this.printer_.writeToStdout(data.body);
+                this.printer_.writeToStdout(data.body, true);
                 break;
             case 'stderr':
-                this.printer_.writeToStderr(data.body);
+                this.printer_.writeToStderr(data.body, true);
                 break;
             case 'outputFile':
                 if (e.data.name === 'main.wasm') {
