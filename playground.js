@@ -20,6 +20,7 @@ class Go {
 
             const worker = new Worker('./go.js');
             worker.addEventListener('message', this.onMessageFromWorker_(worker, resolve, reject));
+            worker.addEventListener('error', reject);
             worker.postMessage({
                 command: ['go', 'run', '-x', 'main.go'],
                 files: {
