@@ -552,6 +552,7 @@ class FS {
             if (fromFile.directory) {
                 if (!toFile) {
                     await this.files._renameDir(from, to);
+                    callback(null);
                     return;
                 }
                 if (!toFile.directory) {
@@ -568,6 +569,7 @@ class FS {
                 }
                 await this.files_.delete(to);
                 await this.files_.renameDir(from, to);
+                callback(null);
                 return;
             }
             if (toFile.directory) {
