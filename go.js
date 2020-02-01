@@ -929,6 +929,20 @@ addEventListener('message', async (e) => {
         });
         return null;
     };
+    const debug = (buf) => {
+        postMessage({
+            type: 'debug',
+            body: buf,
+        });
+        return null;
+    };
+
+    // Overwrite the fetch definition.
+    let origFetch = globalThis.fetch;
+    globalThis.fetch = (resource, init) => {
+        debug(new TextEncoder('utf-8').encode(`Downloading ${resource}...\n`));
+        return origFetch.apply(null, [resource, init]);
+    };
 
     let code = 0;
     const dir = '/root';

@@ -117,6 +117,9 @@ class GoCompiler {
             case 'stderr':
                 this.printer_.writeToStderr(data.body, true);
                 break;
+            case 'debug':
+                this.printer_.writeToStderr(data.body, true);
+                break;
             case 'outputFile':
                 if (e.data.name === 'main.wasm') {
                     this.result_ = e.data.body;
@@ -131,7 +134,7 @@ class GoCompiler {
                     reject(code);
                 }
                 break;
-            case 'debug':
+            case 'download':
                 const a = document.createElement('a');
                 const blob = new Blob([data.body], {type: 'application/octet-stream'});
                 a.href = URL.createObjectURL(blob);
