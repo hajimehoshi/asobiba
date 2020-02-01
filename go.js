@@ -54,16 +54,6 @@ class Storage {
         return result;
     }
 
-    async emptyDir(dir) {
-        const path = dir + '/';
-        for (const key of this.storage_.keys()) {
-            if (!key.startsWith(path)) {
-                continue;
-            }
-            this.storage_.delete(key);
-        }
-    }
-
     async renameDir(from, to) {
         for (const key of this.storage_.keys()) {
             if (!key.startsWith(from)) {
@@ -729,10 +719,6 @@ class FS {
         return await this.files_.childPaths(dir);
     }
 
-    async emptyDir_(dir) {
-        await this.files_.emptyDir(dir);
-    }
-
     async get_(path) {
         return await this.files_.get(path);
     }
@@ -955,7 +941,6 @@ addEventListener('message', async (e) => {
             const argv = e.data.command.slice(1);
             const files = e.data.files;
             code = await globalThis.goInternal_.execCommand('go', argv, {}, dir, files, null, stdout, stderr);
-            await globalThis.fs.emptyDir_('/tmp');
             break;
         default:
             throw new Error(`command ${cmd} not supported`);
