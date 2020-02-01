@@ -480,19 +480,19 @@ class FS {
         (async() => {
             if (fd === 0) {
                 const result = this.stdin_(buf);
-                if (typeof result === 'number') {
-                    const n = result;
-                    if (n === 0) {
-                        // 0 indicates EOF.
-                        callback(null, 0);
-                        return;
-                    }
-                    const slice = new Uint8Array(buf.buffer, buf.byteOffset, n);
-                    buffer.set(slice, offset);
-                    callback(null, n);
-                } else {
+                if (typeof result !== 'number') {
                     callback(new Error(result));
+                    return;
                 }
+                const n = result;
+                if (n === 0) {
+                    // 0 indicates EOF.
+                    callback(null, 0);
+                    return;
+                }
+                const slice = new Uint8Array(buf.buffer, buf.byteOffset, n);
+                buffer.set(slice, offset);
+                callback(null, n);
                 return;
             }
 
