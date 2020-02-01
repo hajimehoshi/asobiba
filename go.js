@@ -75,15 +75,15 @@ class FD {
         return fd;
     }
 
-    constructor(fd, path, offset) {
+    constructor(fd, path, position) {
         this.fd_ = fd;
         this.path_ = path;
-        this.offset_ = offset; // TODO: Rename to position?
+        this.position_ = position;
     }
 
     get path() { return this.path_; }
-    get offset() { return this.offset_; }
-    set offset(offset) { this.offset_ = offset; }
+    get position() { return this.position_; }
+    set position(position) { this.position_ = position; }
 
     isCharacterDevice() {
         if (this.fd_ === 0 || this.fd_ === 1 || this.fd_ === 2) {
@@ -330,11 +330,11 @@ class FS {
                 let position = 0;
                 // handle can be null when fd is 1 or 2.
                 if (handle) {
-                    position = handle.offset;
+                    position = handle.position;
                 }
                 n = await this.pwrite_(fd, buf, position);
                 if (handle && !handle.isCharacterDevice()) {
-                    handle.offset += n;
+                    handle.position += n;
                 }
             }
             callback(null, n);
@@ -450,12 +450,12 @@ class FS {
                 });
             }
 
-            let offset = 0;
+            let position = 0;
             if (flags & this.constants.O_APPEND) {
-                offset = (await this.files_.get(path)).content.byteLength;
+                position = (await this.files_.get(path)).content.byteLength;
             }
             const fd = FD.nextFD();
-            this.fds_.set(fd, new FD(fd, path, offset));
+            this.fds_.set(fd, new FD(fd, path, position));
             callback(null, fd);
         })();
     }
@@ -504,11 +504,11 @@ class FS {
                 // handle can be null when fd is 0.
                 let position = 0;
                 if (handle) {
-                    position = handle.offset;
+                    position = handle.position;
                 }
                 n = await this.pread_(fd, buffer, offset, length, position);
                 if (handle && !handle.isCharacterDevice()) {
-                    handle.offset += n;
+                    handle.position += n;
                 }
             }
             callback(null, n);
