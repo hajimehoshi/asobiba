@@ -10,6 +10,8 @@ class Printer {
         this.stdoutDecoder_ = new TextDecoder('utf-8');
         this.stderrBuf_ = '';
         this.stderrDecoder_ = new TextDecoder('utf-8');
+        this.debugBuf_ = '';
+        this.debugDecoder_ = new TextDecoder('utf-8');
 
         this.output_ = document.getElementById('output');
         this.clearOutput_();
@@ -32,6 +34,10 @@ class Printer {
         case 'stderr':
             buffer = this.stderrBuf_;
             decoder = this.stderrDecoder_;
+            break;
+        case 'debug':
+            buffer = this.debugBuf_;
+            decoder = this.debugDecoder_;
             break;
         default:
             throw new Error(`unknown output type: ${type}`);
@@ -73,6 +79,9 @@ class Printer {
         case 'stderr':
             this.stderrBuf_ = buffer;
             break;
+        case 'debug':
+            this.debugBuf_ = buffer;
+            break;
         default:
             throw new Error(`unknown output type: ${type}`);
         }
@@ -113,7 +122,7 @@ class GoCompiler {
                 this.printer_.write(data.body, 'stderr', true);
                 break;
             case 'debug':
-                this.printer_.write(data.body, 'stderr', true);
+                this.printer_.write(data.body, 'debug', true);
                 break;
             case 'outputFile':
                 if (e.data.name === 'main.wasm') {
