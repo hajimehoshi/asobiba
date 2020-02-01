@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import './wasm_exec.js';
-import { Base64 } from './base64.js';
 
 class Printer {
     constructor() {
@@ -175,8 +174,8 @@ func main() {
     const search = url.searchParams;
     if (search.has('src')) {
         try {
-            const compressed = Base64.atob(search.get('src'));
-            const src = (await lzStringPromise).decompress(compressed);
+            const compressed = search.get('src');
+            const src = (await lzStringPromise).decompressFromBase64(compressed);
             textArea.value = src;
         } catch (e) {
             // Incorrect input.
@@ -249,10 +248,10 @@ func main() {
     shareButton.addEventListener('click', async () => {
         const textArea = document.getElementById('source');
         const src = textArea.value;
-        const compressed = (await lzStringPromise).compress(src);
+        const compressed = (await lzStringPromise).compressToBase64(src);
         const url = new URL(window.location);
         const search = url.searchParams;
-        search.set('src', Base64.btoa(compressed));
+        search.set('src', compressed);
         url.search = search.toString();
         history.replaceState(undefined, undefined, url);
     });
