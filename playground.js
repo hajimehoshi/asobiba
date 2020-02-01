@@ -21,50 +21,34 @@ class Printer {
         }
     }
 
-    writeToStdout(buf, subprocess) {
-        this.stdoutBuf_ += this.stdoutDecoder_.decode(buf);
-        for (;;) {
-            const n = this.stdoutBuf_.indexOf('\n');
-            if (n < 0) {
-                break;
-            }
-            const span = document.createElement('span');
-            span.classList.add('stdout');
-            if (subprocess) {
-                span.classList.add('subprocess');
-            }
-            let line = this.stdoutBuf_.substring(0, n+1);
-            const clearPage = line.lastIndexOf('\x0c');
-            if (clearPage >= 0) {
-                this.clearOutput_();
-                line = line.substring(clearPage+1);
-            }
-            span.textContent = line;
-
-            const scrollable = this.output_.parentElement;
-            const tracking = scrollable.scrollHeight - scrollable.scrollTop === scrollable.clientHeight;
-            this.output_.appendChild(span);
-            if (tracking) {
-                scrollable.scroll(0, scrollable.scrollHeight);
-            }
-
-            this.stdoutBuf_ = this.stdoutBuf_.substring(n+1);
+    write(buf, type, subprocess) {
+        let buffer = null;
+        let decoder = null;
+        switch (type) {
+        case 'stdout':
+            buffer = this.stdoutBuf_;
+            decoder = this.stdoutDecoder_;
+            break;
+        case 'stderr':
+            buffer = this.stderrBuf_;
+            decoder = this.stderrDecoder_;
+            break;
+        default:
+            throw new Error(`unknown output type: ${type}`);
         }
-    }
 
-    writeToStderr(buf, subprocess) {
-        this.stderrBuf_ += this.stderrDecoder_.decode(buf);
+        buffer += decoder.decode(buf);
         for (;;) {
-            const n = this.stderrBuf_.indexOf('\n');
+            const n = buffer.indexOf('\n');
             if (n < 0) {
                 break;
             }
             const span = document.createElement('span');
-            span.classList.add('stderr');
+            span.classList.add(type);
             if (subprocess) {
                 span.classList.add('subprocess');
             }
-            let line = this.stderrBuf_.substring(0, n+1);
+            let line = buffer.substring(0, n+1);
             const clearPage = line.lastIndexOf('\x0c');
             if (clearPage >= 0) {
                 this.clearOutput_();
@@ -79,7 +63,18 @@ class Printer {
                 scrollable.scroll(0, scrollable.scrollHeight);
             }
 
-            this.stderrBuf_ = this.stderrBuf_.substring(n+1);
+            buffer = buffer.substring(n+1);
+        }
+
+        switch (type) {
+        case 'stdout':
+            this.stdoutBuf_ = buffer;
+            break;
+        case 'stderr':
+            this.stderrBuf_ = buffer;
+            break;
+        default:
+            throw new Error(`unknown output type: ${type}`);
         }
     }
 }
@@ -112,13 +107,13 @@ class GoCompiler {
             let data = e.data;
             switch (data.type) {
             case 'stdout':
-                this.printer_.writeToStdout(data.body, true);
+                this.printer_.write(data.body, 'stdout', true);
                 break;
             case 'stderr':
-                this.printer_.writeToStderr(data.body, true);
+                this.printer_.write(data.body, 'stderr', true);
                 break;
             case 'debug':
-                this.printer_.writeToStderr(data.body, true);
+                this.printer_.write(data.body, 'stderr', true);
                 break;
             case 'outputFile':
                 if (e.data.name === 'main.wasm') {
@@ -198,12 +193,12 @@ func main() {
             try {
                 wasm = await gc.build(data);
             } catch (code) {
-                printer.writeToStderr(new TextEncoder('utf-8').encode(`exit code: ${code}\n`));
+                printer.write(new TextEncoder('utf-8').encode(`exit code: ${code}\n`), 'stderr');
             }
             const go = new Go();
             go.exit = (code) => {
                 if (code !== 0) {
-                    printer.writeToStderr(new TextEncoder('utf-8').encode(`exit code: ${code}\n`));
+                    printer.write(new TextEncoder('utf-8').encode(`exit code: ${code}\n`), 'stderr');
                 }
             }
 
@@ -215,11 +210,11 @@ func main() {
 		}
                 switch (fd) {
                 case 1:
-                    printer.writeToStdout(buf);
+                    printer.write(buf, 'stdout');
                     callback(null, buf.length);
                     return;
                 case 2:
-                    printer.writeToStderr(buf);
+                    printer.write(buf, 'stderr');
                     callback(null, buf.length);
                     return;
                 }
@@ -234,7 +229,7 @@ func main() {
                 await go.run(instance);
             } catch (e) {
                 // e.g., If the source is not a main package, instantiation fails.
-                printer.writeToStderr(new TextEncoder('utf-8').encode(e.message + '\n'));
+                printer.write(new TextEncoder('utf-8').encode(e.message + '\n'), 'stderr');
             }
         } finally {
             runButton.disabled = false;
