@@ -471,9 +471,8 @@ class FS {
         if (n > buffer.byteLength - offset) {
             n = buffer.byteLength - offset;
         }
-        for (let i = 0; i < n; i++) {
-            buffer[offset+i] = content[position+i];
-        }
+        const slice = new Uint8Array(content.buffer, content.byteOffset + position, n);
+        buffer.set(slice, offset)
         return n;
     }
 
@@ -488,7 +487,8 @@ class FS {
                         callback(null, 0);
                         return;
                     }
-                    buffer.set(buf.slice(0, n), offset);
+                    const slice = new Uint8Array(buf.buffer, buf.byteOffset, n);
+                    buffer.set(slice, offset);
                     callback(null, n);
                 } else {
                     callback(new Error(result));
