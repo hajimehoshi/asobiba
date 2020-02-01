@@ -136,6 +136,7 @@ class FS {
     }
 
     static tools() {
+        // Some tools like buildid are missing, but the file entries are required.
         return ['asm', 'buildid', 'compile', 'link', 'pack'];
     }
 

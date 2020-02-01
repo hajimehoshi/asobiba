@@ -313,20 +313,12 @@ func genBins(tmp string) error {
 			Path: "cmd/asm",
 		},
 		{
-			Name: "buildid" + goversion + ".wasm",
-			Path: "cmd/buildid",
-		},
-		{
 			Name: "compile" + goversion + ".wasm",
 			Path: "cmd/compile",
 		},
 		{
 			Name: "link" + goversion + ".wasm",
 			Path: "cmd/link",
-		},
-		{
-			Name: "pack" + goversion + ".wasm",
-			Path: "cmd/pack",
 		},
 	}
 	for _, file := range files {
