@@ -937,6 +937,8 @@ addEventListener('message', async (e) => {
         return null;
     };
 
+    info(new TextEncoder('utf-8').encode('$ ' + e.data.command.join(' ') + '\n'));
+
     // Overwrite the fetch definition.
     let origFetch = globalThis.fetch;
     globalThis.fetch = (resource, init) => {
