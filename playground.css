@@ -28,8 +28,8 @@ body {
 .stderr {
     color: #c33;
 }
-.debug {
-    color: #993;
+.info {
+    color: #33c;
 }
 .stdout.subprocess {
     color: #999;

@@ -929,9 +929,9 @@ addEventListener('message', async (e) => {
         });
         return null;
     };
-    const debug = (buf) => {
+    const info = (buf) => {
         postMessage({
-            type: 'debug',
+            type: 'info',
             body: buf,
         });
         return null;
@@ -940,7 +940,7 @@ addEventListener('message', async (e) => {
     // Overwrite the fetch definition.
     let origFetch = globalThis.fetch;
     globalThis.fetch = (resource, init) => {
-        debug(new TextEncoder('utf-8').encode(`Downloading ${resource}...\n`));
+        info(new TextEncoder('utf-8').encode(`Downloading ${resource}...\n`));
         return origFetch.apply(null, [resource, init]);
     };
 
