@@ -37,6 +37,9 @@ body {
 .stderr.subprocess {
     color: #c99;
 }
+#loading {
+    background-color: #fffc;
+}
 
 /* flex */
 body {
@@ -66,4 +69,13 @@ aside {
 footer {
     flex-grow: 0;
     height: 48px;
+}
+#loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+
+    position: absolute;
 }

@@ -153,6 +153,7 @@ class GoCompiler {
 }
 
 window.addEventListener('DOMContentLoaded', async (e) => {
+    document.getElementById('loading').style.display = 'none';
     updateCSS();
 
     const lzStringPromise = new Promise(async (resolve, reject) => {
