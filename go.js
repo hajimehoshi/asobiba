@@ -488,11 +488,8 @@ class FS {
                         callback(null, 0);
                         return;
                     }
-                    const buf = new Uint8Array(length);
-                    for (let i = 0; i < n; i++) {
-                        buffer[offset+i] = buf[i];
-                    }
-                    callback(null, buf.byteLength);
+                    buffer.set(buf.slice(0, n), offset);
+                    callback(null, n);
                 } else {
                     callback(new Error(result));
                 }
