@@ -12,6 +12,10 @@ class Printer {
         this.stderrDecoder_ = new TextDecoder('utf-8');
 
         this.output_ = document.getElementById('output');
+        this.clearOutput_();
+    }
+
+    clearOutput_() {
         while (this.output_.firstChild) {
             this.output_.firstChild.remove();
         }
@@ -29,7 +33,13 @@ class Printer {
             if (subprocess) {
                 span.classList.add('subprocess');
             }
-            span.textContent = this.stdoutBuf_.substring(0, n+1);
+            let line = this.stdoutBuf_.substring(0, n+1);
+            const clearPage = line.lastIndexOf('\x0c');
+            if (clearPage >= 0) {
+                this.clearOutput_();
+                line = line.substring(clearPage+1);
+            }
+            span.textContent = line;
 
             const scrollable = this.output_.parentElement;
             const tracking = scrollable.scrollHeight - scrollable.scrollTop === scrollable.clientHeight;
@@ -54,7 +64,13 @@ class Printer {
             if (subprocess) {
                 span.classList.add('subprocess');
             }
-            span.textContent = this.stderrBuf_.substring(0, n+1);
+            let line = this.stderrBuf_.substring(0, n+1);
+            const clearPage = line.lastIndexOf('\x0c');
+            if (clearPage >= 0) {
+                this.clearOutput_();
+                line = line.substring(clearPage+1);
+            }
+            span.textContent = line;
 
             const scrollable = this.output_.parentElement;
             const tracking = scrollable.scrollHeight - scrollable.scrollTop === scrollable.clientHeight;
