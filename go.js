@@ -942,7 +942,7 @@ addEventListener('message', async (e) => {
     // Overwrite the fetch definition.
     let origFetch = globalThis.fetch;
     globalThis.fetch = (resource, init) => {
-        info(new TextEncoder('utf-8').encode(`Downloading ${resource}...\n`));
+        info(new TextEncoder('utf-8').encode(`Downloading ${resource}\n`));
         return origFetch.apply(null, [resource, init]);
     };
 
