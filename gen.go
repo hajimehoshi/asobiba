@@ -57,6 +57,9 @@ func run() error {
 	if err := genStdfiles(tmp); err != nil {
 		return err
 	}
+	// TODO: Generate cache with GOOS=js GOARCH=wasm GOCACHE=/path/to/cache $GOROOT/bin/go build -x std
+	// This must be done before replacing files.
+
 	if err := replaceFiles(tmp); err != nil {
 		return err
 	}
