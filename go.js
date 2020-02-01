@@ -903,7 +903,7 @@ class GoInternal {
 
 addEventListener('message', async (e) => {
     if (globalThis.started_) {
-        throw new Error('compiler.js can be called only once');
+        throw new Error('go.js can be called only once');
     }
     globalThis.started_ = true;
 
