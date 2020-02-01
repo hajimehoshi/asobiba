@@ -11,24 +11,24 @@ function enosys(name) {
 
 class Storage {
     constructor() {
-        this.storage_ = {};
+        this.storage_ = new Map();
     }
 
     async get(path) {
-        return this.storage_[path];
+        return this.storage_.get(path);
     }
 
     async set(path, value) {
-        this.storage_[path] = value;
+        this.storage_.set(path, value);
     }
 
     async delete(path) {
-        delete(this.storage_[path]);
+        this.storage_.delete(path);
     }
 
     async hasChildren(dir) {
         const result = [];
-        for (const key of Object.keys(this.storage_)) {
+        for (const key of this.storage_.keys()) {
             if (key.startsWith(dir + '/')) {
                 return true;
             }
@@ -38,7 +38,7 @@ class Storage {
 
     async childPaths(dir) {
         const result = [];
-        for (const key of Object.keys(this.storage_)) {
+        for (const key of this.storage_.keys()) {
             if (key === dir) {
                 continue;
             }
@@ -56,22 +56,22 @@ class Storage {
 
     async emptyDir(dir) {
         const path = dir + '/';
-        for (const key of Object.keys(this.storage_)) {
+        for (const key of this.storage_.keys()) {
             if (!key.startsWith(path)) {
                 continue;
             }
-            delete(this.storage_[key]);
+            this.storage_.delete(key);
         }
     }
 
     async renameDir(from, to) {
-        for (const key of Object.keys(this.storage_)) {
+        for (const key of this.storage_.keys()) {
             if (!key.startsWith(from)) {
                 continue;
             }
             const newPath = to + key.substring(from.length);
-            this.storage_[newPath] = this.storage_[key];
-            delete(this.storage_[key]);
+            this.storage_.set(newPath, this.storage_.get(key));
+            this.storage_.delete(key);
         }
     }
 }
