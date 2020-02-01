@@ -27,22 +27,13 @@ class Storage {
     }
 
     async hasChildren(dir) {
-        const result = [];
-        for (const key of this.storage_.keys()) {
-            if (key.startsWith(dir + '/')) {
-                return true;
-            }
-        }
-        return false;
+        return Array.prototype.some.call(this.storage_.keys(), key => key.startsWith(dir + '/'));
     }
 
     async childPaths(dir) {
         const result = [];
         for (const key of this.storage_.keys()) {
-            if (key === dir) {
-                continue;
-            }
-            if (!key.startsWith(dir)) {
+            if (!key.startsWith(dir + '/')) {
                 continue;
             }
             const filename = key.substring(dir.length+1);
