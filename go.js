@@ -206,7 +206,7 @@ class FS {
             directory: true,
         });
 
-        // stdlib files
+        // Generate stdlib files.
         let stdfiles = await (await fetch('./stdfiles.json')).json();
         for (const filename of Object.keys(stdfiles)) {
             const fullfn = goroot + '/' + filename;
@@ -216,6 +216,25 @@ class FS {
                 content: Uint8Array.from(atob(stdfiles[filename]), c => c.charCodeAt(0)),
             });
         }
+
+        // Generate cache files.
+        // TODO: Add pre-built cache.
+        await this.files_.set('/var', {
+            directory: true,
+        });
+        await this.files_.set('/var/cache', {
+            directory: true,
+        });
+        for (let i = 0; i < 256; i++) {
+            let dir = i.toString(16);
+            if (dir.length === 1) {
+                dir = '0' + dir;
+            }
+            await this.files_.set('/var/cache/' + dir, {
+                directory: true,
+            });
+        }
+        // /var/cache/trim.txt is checked after processing Go building. No need to prepare this.
 
         // Dummy files for tools
         await this.files_.set(goroot + '/pkg', {
@@ -836,6 +855,7 @@ class GoInternal {
             TMPDIR:      '/tmp',
             HOME:        '/root',
             GOROOT:      '/go',
+            GOCACHE:     '/var/cache',
             GO111MODULE: 'on',
             GOPROXY:     'cache.greedo.xeserv.us', // The default GOPROXY doesn't work due to CORS.
             GOSUMDB:     'off',                    // Ditto.
