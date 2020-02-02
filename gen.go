@@ -22,11 +22,12 @@ import (
 var (
 	flagTar = flag.String("tar", "", "tar file of Go binary")
 	flagDir = flag.String("dir", "", "directory of Go binary")
+	flagClean = flag.Bool("clean", false, "clears the builts")
 )
 
 func main() {
 	flag.Parse()
-	if *flagTar == "" && *flagDir == "" {
+	if *flagTar == "" && *flagDir == "" && *flagClean == false {
 		// TODO: This works only on macOS and Linux. Take care about other platforms.
 		fmt.Fprintf(os.Stderr, "-tar or -dir must be specified. Download from https://dl.google.com/go/go%s.%s-%s.tar.gz and use it.\n", goversion, runtime.GOOS, runtime.GOARCH)
 		os.Exit(1)
@@ -42,6 +43,20 @@ func run() error {
 	if err := os.Unsetenv("GOROOT"); err != nil {
 		return err
 	}
+
+	if err := os.RemoveAll("./wasm_exec.js"); err != nil {
+		return err
+	}
+	if err := os.RemoveAll("./stdfiles.json"); err != nil {
+		return err
+	}
+	if err := os.RemoveAll("./bin"); err != nil {
+		return err
+	}
+	if (*flagClean) {
+		return nil
+	}
+
 	tmp, err := ioutil.TempDir("", "playground-")
 	if err != nil {
 		return err
