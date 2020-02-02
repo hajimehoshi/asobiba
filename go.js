@@ -58,9 +58,10 @@ class Storage {
 }
 
 class FD {
-    static nextFD_ = 1000;
-
     static nextFD() {
+        if (!FD.nextFD_) {
+            FD.nextFD_ = 1000;
+        }
         const fd = FD.nextFD_;
         FD.nextFD_++;
         return fd;
