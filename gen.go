@@ -293,7 +293,7 @@ func stdfiles(tmp string) ([]string, error) {
 }
 
 func genStdfiles(tmp string) error {
-	fmt.Printf("Generating stdfiles.json\n")
+	fmt.Printf("Generating stdfiles.json.gz\n")
 
 	// Add $GOROOT/src
 	fs, err := stdfiles(tmp)
@@ -363,14 +363,68 @@ func genStdfiles(tmp string) error {
 func genBins(tmp string) error {
 	gobin := filepath.Join(tmp, "go", "bin", "go")
 
-	for _, command := range []string{"go", "asm", "compile", "link"} {
-		name := command + goversion + ".wasm"
-		path := "cmd/" + command
-		fmt.Printf("Generating %s\n", filepath.Join("bin", name))
+	type bin struct {
+		name     string
+		compress bool
+	}
+
+	for _, b := range []bin{
+		{
+			name:     "go",
+			compress: false,
+		},
+		{
+			name:     "asm",
+			compress: true,
+		},
+		{
+			name:     "compile",
+			compress: true,
+		},
+		{
+			name:     "link",
+			compress: true,
+		},
+	} {
+		name := b.name + goversion + ".wasm"
+		path := "cmd/" + b.name
+		fmt.Printf("Generating %s", filepath.Join("bin", name))
+		if b.compress {
+			fmt.Printf(".gz")
+		}
+		fmt.Printf("\n")
 		cmd := exec.Command(gobin, "build", "-trimpath", "-o="+filepath.Join("bin", name), path)
 		cmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
+			return err
+		}
+
+		if !b.compress {
+			continue
+		}
+
+		in, err := os.Open(filepath.Join("bin", name))
+		if err != nil {
+			return err
+		}
+		defer in.Close()
+		out, err := os.Create(filepath.Join("bin", name+".gz"))
+		if err != nil {
+			return err
+		}
+		defer out.Close()
+
+		w := gzip.NewWriter(out)
+		defer w.Close()
+		if _, err := io.Copy(w, in); err != nil {
+			return err
+		}
+		if err := w.Flush(); err != nil {
+			return err
+		}
+
+		if err := os.Remove(filepath.Join("bin", name)); err != nil {
 			return err
 		}
 	}

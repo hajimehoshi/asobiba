@@ -805,12 +805,12 @@ class GoInternal {
 
         const goversion = '1.14beta1';
         const commandName = command.split('/').pop();
-        let wasmPath = null;
+        let wasmPath = '';
         let wasmContent = null;
         if (command === 'go') {
             wasmPath = `./bin/go${goversion}.wasm`;
         } else if (command === `/go/pkg/tool/js_wasm/${commandName}` && FS.tools().includes(commandName)) {
-            wasmPath = `./bin/${commandName}${goversion}.wasm`;
+            wasmContent = (await globalThis.fs.files_.get(`/go/pkg/tool/js_wasm/${commandName}`)).content;
         } else {
             const bin = await globalThis.fs.files_.get(command);
             if (bin) {
