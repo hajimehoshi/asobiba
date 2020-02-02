@@ -8,6 +8,7 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
+	"encoding/base64"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -51,6 +52,9 @@ func run() error {
 	if err := os.RemoveAll("stdfiles.json.gz"); err != nil {
 		return err
 	}
+	if err := os.RemoveAll("cache"); err != nil {
+		return err
+	}
 	if err := os.RemoveAll("bin"); err != nil {
 		return err
 	}
@@ -58,7 +62,7 @@ func run() error {
 		return nil
 	}
 
-	tmp, err := ioutil.TempDir("", "playground-")
+	tmp, err := ioutil.TempDir("", "asobiba-")
 	if err != nil {
 		return err
 	}
@@ -70,12 +74,12 @@ func run() error {
 	if err := copyWasmExecJs(tmp); err != nil {
 		return err
 	}
-	if err := genStdfiles(tmp); err != nil {
+	if err := genStdfilesJson(tmp); err != nil {
 		return err
 	}
-	// TODO: Generate cache with GOOS=js GOARCH=wasm GOCACHE=/path/to/cache $GOROOT/bin/go build -x std
-	// This must be done before replacing files.
-
+	if err := genCacheJsons(tmp); err != nil {
+		return err
+	}
 	if err := replaceFiles(tmp); err != nil {
 		return err
 	}
@@ -283,7 +287,31 @@ func stdfiles(tmp string) ([]string, error) {
 	return files, nil
 }
 
-func genStdfiles(tmp string) error {
+func writeGzFile(contents map[string]string, name string) error {
+	f, err := os.Create(name)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(contents); err != nil {
+		return err
+	}
+
+	w := gzip.NewWriter(f)
+	defer w.Close()
+	if _, err := io.Copy(w, &buf); err != nil {
+		return err
+	}
+	if err := w.Flush(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func genStdfilesJson(tmp string) error {
 	fmt.Printf("Generating stdfiles.json.gz\n")
 
 	// Add $GOROOT/src
@@ -312,6 +340,7 @@ func genStdfiles(tmp string) error {
 		if info.IsDir() {
 			return nil
 		}
+
 		rel, err := filepath.Rel(gr, path)
 		if err != nil {
 			return err
@@ -322,30 +351,74 @@ func genStdfiles(tmp string) error {
 			return err
 		}
 
-		contents[rel] = string(c)
+		contents[filepath.ToSlash(rel)] = string(c)
 		return nil
 	}); err != nil {
 		return err
 	}
 
-	f, err := os.Create("stdfiles.json.gz")
+	if err := writeGzFile(contents, "stdfiles.json.gz"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func genCacheJsons(tmp string) error {
+	fmt.Printf("Generating cache JSON files\n")
+
+	if err := os.MkdirAll("cache", 0755); err != nil {
+		return err
+	}
+
+	cachetmp, err := ioutil.TempDir("", "asobiba-cache-")
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer os.RemoveAll(cachetmp)
 
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(contents); err != nil {
+	gobin := filepath.Join(tmp, "go", "bin", "go")
+
+	cmd := exec.Command(gobin, "build", "std")
+	cmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm", "GOCACHE="+cachetmp)
+	cmd.Stderr = os.Stderr
+	if _, err := cmd.Output(); err != nil {
 		return err
 	}
 
-	w := gzip.NewWriter(f)
-	defer w.Close()
-	if _, err := io.Copy(w, &buf); err != nil {
-		return err
-	}
-	if err := w.Flush(); err != nil {
-		return err
+	cache := map[byte]map[string]string{}
+	filepath.Walk(cachetmp, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.Name() == "README" || info.Name() == "trim.txt" {
+			return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
+
+		rel, err := filepath.Rel(cachetmp, path)
+		if err != nil {
+			return err
+		}
+
+		c, err := ioutil.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		r := rel[0]
+		if _, ok := cache[r]; !ok {
+			cache[r] = map[string]string{}
+		}
+		cache[r][filepath.ToSlash(rel)] = base64.StdEncoding.EncodeToString(c)
+		return nil
+	})
+
+	for r, c := range cache {
+		if err := writeGzFile(c, filepath.Join("cache", string(r)+".json.gz")); err != nil {
+			return err
+		}
 	}
 
 	return nil

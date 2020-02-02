@@ -268,25 +268,26 @@ class FS {
             });
         }
 
+        // Generate cache files.
+        for (let i = 0; i < 16; i++) {
+            const a = i.toString(16);
+            promises.push(new Promise(async (resolve, reject) => {
+                const buf = await (await fetch(`./cache/${a}.json.gz`)).arrayBuffer();
+                const cache = JSON.parse(new TextDecoder('utf-8').decode(await FS.decompress_(buf)));
+                for (const path in cache) {
+                    const fullpath = '/var/cache/' + path;
+                    const idx = fullpath.lastIndexOf('/');
+                    await this.mkdirp_(fullpath.substring(0, idx));
+                    await this.files_.set(fullpath, {
+                        content: Uint8Array.from(atob(cache[path]), c => c.charCodeAt(0)),
+                    });
+                }
+                resolve();
+            }));
+        }
+
         await Promise.all(promises);
 
-        // Generate cache files.
-        // TODO: Add pre-built cache.
-        await this.files_.set('/var', {
-            directory: true,
-        });
-        await this.files_.set('/var/cache', {
-            directory: true,
-        });
-        for (let i = 0; i < 256; i++) {
-            let dir = i.toString(16);
-            if (dir.length === 1) {
-                dir = '0' + dir;
-            }
-            await this.files_.set('/var/cache/' + dir, {
-                directory: true,
-            });
-        }
         await this.files_.set('/var/cache/README', {
             content: new TextEncoder('utf-8').encode('Hi.\n'),
         });
@@ -709,6 +710,7 @@ class FS {
             callback(err);
             return;
         }
+
         let mode = 0;
         if (file.directory) {
             mode |= FS.statModes.S_IFDIR;
