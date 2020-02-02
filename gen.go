@@ -20,8 +20,8 @@ import (
 )
 
 var (
-	flagTar = flag.String("tar", "", "tar file of Go binary")
-	flagDir = flag.String("dir", "", "directory of Go binary")
+	flagTar   = flag.String("tar", "", "tar file of Go binary")
+	flagDir   = flag.String("dir", "", "directory of Go binary")
 	flagClean = flag.Bool("clean", false, "clears the builts")
 )
 
@@ -44,16 +44,16 @@ func run() error {
 		return err
 	}
 
-	if err := os.RemoveAll("./wasm_exec.js"); err != nil {
+	if err := os.RemoveAll("wasm_exec.js"); err != nil {
 		return err
 	}
-	if err := os.RemoveAll("./stdfiles.json"); err != nil {
+	if err := os.RemoveAll("stdfiles.json"); err != nil {
 		return err
 	}
-	if err := os.RemoveAll("./bin"); err != nil {
+	if err := os.RemoveAll("bin"); err != nil {
 		return err
 	}
-	if (*flagClean) {
+	if *flagClean {
 		return nil
 	}
 
@@ -206,7 +206,7 @@ func copyWasmExecJs(tmp string) error {
 		return err
 	}
 
-	out, err := os.Create("./wasm_exec.js")
+	out, err := os.Create("wasm_exec.js")
 	if err != nil {
 		return err
 	}
@@ -318,30 +318,11 @@ func genStdfiles(tmp string) error {
 func genBins(tmp string) error {
 	gobin := filepath.Join(tmp, "go", "bin", "go")
 
-	files := []struct {
-		Name string
-		Path string
-	}{
-		{
-			Name: "go" + goversion + ".wasm",
-			Path: "cmd/go",
-		},
-		{
-			Name: "asm" + goversion + ".wasm",
-			Path: "cmd/asm",
-		},
-		{
-			Name: "compile" + goversion + ".wasm",
-			Path: "cmd/compile",
-		},
-		{
-			Name: "link" + goversion + ".wasm",
-			Path: "cmd/link",
-		},
-	}
-	for _, file := range files {
-		fmt.Printf("Generating %s\n", file.Name)
-		cmd := exec.Command(gobin, "build", "-trimpath", "-o=bin/"+file.Name, file.Path)
+	for _, command := range []string{"go", "asm", "compile", "link"} {
+		name := command + goversion + ".wasm"
+		path := "cmd/" + command
+		fmt.Printf("Generating %s\n", filepath.Join("bin", name))
+		cmd := exec.Command(gobin, "build", "-trimpath", "-o="+filepath.Join("bin", name), path)
 		cmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
