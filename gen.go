@@ -292,26 +292,6 @@ func stdfiles(tmp string) ([]string, error) {
 	return files, nil
 }
 
-/*func readAndCompressFile(path string) ([]byte, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	var bs bytes.Buffer
-	w := gzip.NewWriter(&bs)
-	defer w.Close()
-
-	if _, err := io.Copy(w, f); err != nil {
-		return nil, err
-	}
-	if err := w.Flush(); err != nil {
-		return nil, err
-	}
-	return bs.Bytes(), nil
-}*/
-
 func genStdfiles(tmp string) error {
 	fmt.Printf("Generating stdfiles.json\n")
 
