@@ -234,6 +234,9 @@ class FS {
                 directory: true,
             });
         }
+        await this.files_.set('/var/cache/README', {
+            content: new TextEncoder('utf-8').encode('Hi.\n'),
+        });
         // /var/cache/trim.txt is checked after processing Go building. No need to prepare this.
 
         // Dummy files for tools
