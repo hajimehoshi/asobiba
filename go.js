@@ -207,7 +207,6 @@ class FS {
         });
 
         // stdlib files
-        // TODO: Load them lazily
         let stdfiles = await (await fetch('./stdfiles.json')).json();
         for (const filename of Object.keys(stdfiles)) {
             const fullfn = goroot + '/' + filename;
