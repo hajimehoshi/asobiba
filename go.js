@@ -182,6 +182,8 @@ class FS {
     }
     
     async initializeFiles() {
+        // Initilizing files also happens at cmd/go/internal/asobiba.
+
         await this.files_.set('/', {
             directory: true,
         });
@@ -205,17 +207,6 @@ class FS {
         await this.files_.set(goroot, {
             directory: true,
         });
-
-        // Generate stdlib files.
-        let stdfiles = await (await fetch('./stdfiles.json')).json();
-        for (const filename of Object.keys(stdfiles)) {
-            const fullfn = goroot + '/' + filename;
-            const dir = fullfn.substring(0, fullfn.lastIndexOf('/'));
-            await this.mkdirp_(dir);
-            await this.files_.set(fullfn, {
-                content: Uint8Array.from(atob(stdfiles[filename]), c => c.charCodeAt(0)),
-            });
-        }
 
         // Generate cache files.
         // TODO: Add pre-built cache.

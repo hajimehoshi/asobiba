@@ -1,4 +1,4 @@
 *~
 bin
-stdfiles.json
+stdfiles.json.gz
 wasm_exec.js

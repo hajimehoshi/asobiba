@@ -6,6 +6,8 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/base64"
 	"encoding/json"
 	"flag"
@@ -47,7 +49,7 @@ func run() error {
 	if err := os.RemoveAll("wasm_exec.js"); err != nil {
 		return err
 	}
-	if err := os.RemoveAll("stdfiles.json"); err != nil {
+	if err := os.RemoveAll("stdfiles.json.gz"); err != nil {
 		return err
 	}
 	if err := os.RemoveAll("bin"); err != nil {
@@ -155,6 +157,14 @@ func replaceFiles(tmp string) error {
 			path:  filepath.Join("cmd", "go", "internal", "lockedfile", "internal", "filelock"),
 			clear: true,
 		},
+		{
+			path:  filepath.Join("cmd", "go"),
+			clear: false,
+		},
+		{
+			path:  filepath.Join("cmd", "go", "internal", "asobiba"),
+			clear: false,
+		},
 	} {
 		path := r.path
 		if r.clear {
@@ -178,12 +188,21 @@ func replaceFiles(tmp string) error {
 			if f.IsDir() {
 				continue
 			}
+			// Check the extension since sometimes there can be backup files with ~.
+			if !strings.HasSuffix(f.Name(), ".go") {
+				continue
+			}
 
 			in, err := os.Open(filepath.Join("go", path, f.Name()))
 			if err != nil {
 				return err
 			}
 			defer in.Close()
+
+			if err := os.MkdirAll(filepath.Join(tmp, "go", "src", path), 0755); err != nil {
+				return err
+			}
+
 			out, err := os.Create(filepath.Join(tmp, "go", "src", path, f.Name()))
 			if err != nil {
 				return err
@@ -273,6 +292,26 @@ func stdfiles(tmp string) ([]string, error) {
 	return files, nil
 }
 
+/*func readAndCompressFile(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	var bs bytes.Buffer
+	w := gzip.NewWriter(&bs)
+	defer w.Close()
+
+	if _, err := io.Copy(w, f); err != nil {
+		return nil, err
+	}
+	if err := w.Flush(); err != nil {
+		return nil, err
+	}
+	return bs.Bytes(), nil
+}*/
+
 func genStdfiles(tmp string) error {
 	fmt.Printf("Generating stdfiles.json\n")
 
@@ -306,26 +345,38 @@ func genStdfiles(tmp string) error {
 		if err != nil {
 			return err
 		}
+
 		c, err := ioutil.ReadFile(path)
 		if err != nil {
 			return err
 		}
+
 		contents[rel] = base64.StdEncoding.EncodeToString(c)
 		return nil
 	}); err != nil {
 		return err
 	}
 
-	f, err := os.Create("stdfiles.json")
+	f, err := os.Create("stdfiles.json.gz")
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	e := json.NewEncoder(f)
-	if err := e.Encode(contents); err != nil {
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(contents); err != nil {
 		return err
 	}
+
+	w := gzip.NewWriter(f)
+	defer w.Close()
+	if _, err := io.Copy(w, &buf); err != nil {
+		return err
+	}
+	if err := w.Flush(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
