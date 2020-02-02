@@ -153,7 +153,6 @@ class GoCompiler {
 }
 
 window.addEventListener('DOMContentLoaded', async (e) => {
-    document.getElementById('loading').style.display = 'none';
     updateCSS();
 
     const lzStringPromise = new Promise(async (resolve, reject) => {
@@ -256,6 +255,8 @@ func main() {
         url.search = search.toString();
         history.replaceState(undefined, undefined, url);
     });
+
+    document.getElementById('loading').style.display = 'none';
 });
 
 window.addEventListener('resize', (e) => {
