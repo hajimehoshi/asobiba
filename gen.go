@@ -140,16 +140,30 @@ func prepareGo(tmp string) error {
 }
 
 func replaceFiles(tmp string) error {
+	type replace struct {
+		path  string
+		clear bool
+	}
+
 	// Rewite files in some packages.
-	for _, path := range []string{
-		filepath.Join("os", "exec"),
-		filepath.Join("cmd", "go", "internal", "lockedfile", "internal", "filelock"),
+	for _, r := range []replace{
+		{
+			path:  filepath.Join("os", "exec"),
+			clear: true,
+		},
+		{
+			path:  filepath.Join("cmd", "go", "internal", "lockedfile", "internal", "filelock"),
+			clear: true,
+		},
 	} {
-		if err := os.RemoveAll(filepath.Join(tmp, "go", "src", path)); err != nil {
-			return err
-		}
-		if err := os.Mkdir(filepath.Join(tmp, "go", "src", path), 0777); err != nil {
-			return err
+		path := r.path
+		if r.clear {
+			if err := os.RemoveAll(filepath.Join(tmp, "go", "src", path)); err != nil {
+				return err
+			}
+			if err := os.Mkdir(filepath.Join(tmp, "go", "src", path), 0777); err != nil {
+				return err
+			}
 		}
 
 		dir, err := os.Open(filepath.Join("go", path))
