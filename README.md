@@ -1,6 +1,6 @@
 # Asobiba (遊び場)
 
-Asobiba is an experimiental Go playground with the Go toolchain in WebAssembly.
+Asobiba is an experimental Go playground with the Go toolchain in WebAssembly.
 
 This is still work in progress.
 
