@@ -21,6 +21,7 @@ pre {
 /* color */
 body {
     color: #333;
+    background-color: #fff;
 }
 .stdout {
     color: #333;
