@@ -4,10 +4,12 @@
 package asobiba
 
 import (
+	"bytes"
 	"compress/gzip"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -30,6 +32,30 @@ func init() {
 	}
 }
 
+func decompressHTTPResponse(r io.Reader) (io.Reader, error) {
+	r, err := gzip.NewReader(r)
+	if err != nil {
+		return nil, err
+	}
+
+	var magic [2]byte
+	if _, err := io.ReadFull(r, magic[:]); err != nil {
+		return nil, err
+	}
+	r = io.MultiReader(bytes.NewReader(magic[:]), r)
+	if magic[0] != 0x1f && magic[1] != 0x8b {
+		return r, nil
+	}
+
+	// A fetched response is decompressed twice on Firefox.
+	// See https://bugzilla.mozilla.org/show_bug.cgi?id=610679
+	r, err = gzip.NewReader(r)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
 func initStdfiles() error {
 	res, err := http.Get("./stdfiles.json.gz")
 	if err != nil {
@@ -37,11 +63,10 @@ func initStdfiles() error {
 	}
 	defer res.Body.Close()
 
-	r, err := gzip.NewReader(res.Body)
+	r, err := decompressHTTPResponse(res.Body)
 	if err != nil {
 		return err
 	}
-	defer r.Close()
 
 	d := json.NewDecoder(r)
 	var files map[string]string
@@ -80,11 +105,10 @@ func initWasm() error {
 		}
 		defer res.Body.Close()
 
-		r, err := gzip.NewReader(res.Body)
+		r, err := decompressHTTPResponse(res.Body)
 		if err != nil {
 			return err
 		}
-		defer r.Close()
 
 		bs, err := ioutil.ReadAll(r)
 		if err != nil {
