@@ -43,7 +43,7 @@ func decompressHTTPResponse(r io.Reader) (io.Reader, error) {
 		return nil, err
 	}
 	r = io.MultiReader(bytes.NewReader(magic[:]), r)
-	if magic[0] != 0x1f && magic[1] != 0x8b {
+	if magic[0] != 0x1f || magic[1] != 0x8b {
 		return r, nil
 	}
 
