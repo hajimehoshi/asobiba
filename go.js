@@ -172,6 +172,22 @@ class FS {
         return result;
     }
 
+    static async decompress_(buf) {
+        if (!FS.pakoImported_) {
+            const geval = eval;
+            geval(await (await fetch('./pako_inflate.min.js')).text());
+            FS.pakoImported_ = true;
+        }
+
+        let decompressed = pako.ungzip(buf);
+        // A fetched response might be decompressed twice on Firefox.
+        // See https://bugzilla.mozilla.org/show_bug.cgi?id=610679
+        if (decompressed[0] === 0x1f && decompressed[1] === 0x8b) {
+            decompressed = pako.ungzip(decompressed);
+        }
+        return decompressed;
+    }
+
     constructor(ps) {
         // TODO: What about using localStorage except for /tmp?
         this.files_ = new Storage();
@@ -180,6 +196,7 @@ class FS {
         this.writeSyncBuf_ = '';
         this.decoder_ = new TextDecoder('utf-8');
     }
+
     
     async initializeFiles() {
         // Initilizing files also happens at cmd/go/internal/asobiba.
@@ -207,6 +224,20 @@ class FS {
         await this.files_.set(goroot, {
             directory: true,
         });
+
+        // Standard lib files
+        const buf = await (await fetch('./stdfiles.json.gz')).arrayBuffer();
+        const stdfiles = JSON.parse(new TextDecoder('utf-8').decode(await FS.decompress_(buf)));
+        for (const path in stdfiles) {
+            const fullpath = '/go/' + path;
+            const idx = fullpath.lastIndexOf('/');
+            await this.mkdirp_(fullpath.substring(0, idx));
+            await this.files_.set(fullpath, {
+                content: new TextEncoder('utf-8').encode(stdfiles[path]),
+            });
+        }
+
+        // TODO: Load binaries here
 
         // Generate cache files.
         // TODO: Add pre-built cache.

@@ -15,3 +15,4 @@ This is still work in progress.
 * [Go](https://golang.org/) (BSD-3-Clause)
 * [lz-string](https://github.com/pieroxy/lz-string) (MIT)
 * [normalize.css](https://github.com/necolas/normalize.css) (MIT)
+* [pako](https://github.com/nodeca/pako) (MIT)

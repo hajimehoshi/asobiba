@@ -8,7 +8,6 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
-	"encoding/base64"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -310,7 +309,7 @@ func genStdfiles(tmp string) error {
 		if err != nil {
 			return err
 		}
-		contents[f] = base64.StdEncoding.EncodeToString(c)
+		contents[f] = string(c)
 	}
 
 	// Add $GOROOT/pkg/include
@@ -331,7 +330,7 @@ func genStdfiles(tmp string) error {
 			return err
 		}
 
-		contents[rel] = base64.StdEncoding.EncodeToString(c)
+		contents[rel] = string(c)
 		return nil
 	}); err != nil {
 		return err

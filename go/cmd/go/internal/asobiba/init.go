@@ -6,13 +6,10 @@ package asobiba
 import (
 	"bytes"
 	"compress/gzip"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
-	"strings"
 	"syscall/js"
 )
 
@@ -24,9 +21,6 @@ var (
 )
 
 func init() {
-	if err := initStdfiles(); err != nil {
-		panic(err)
-	}
 	if err := initWasm(); err != nil {
 		panic(err)
 	}
@@ -54,44 +48,6 @@ func decompressHTTPResponse(r io.Reader) (io.Reader, error) {
 		return nil, err
 	}
 	return r, nil
-}
-
-func initStdfiles() error {
-	res, err := http.Get("./stdfiles.json.gz")
-	if err != nil {
-		return err
-	}
-	defer res.Body.Close()
-
-	r, err := decompressHTTPResponse(res.Body)
-	if err != nil {
-		return err
-	}
-
-	d := json.NewDecoder(r)
-	var files map[string]string
-	if err := d.Decode(&files); err != nil {
-		return err
-	}
-
-	const goroot = "/go"
-	for name, content := range files {
-		decoded, err := base64.StdEncoding.DecodeString(content)
-		if err != nil {
-			return err
-		}
-
-		path := goroot + "/" + name
-		jsFS.Call("mkdirp_", path[:strings.LastIndex(path, "/")])
-
-		u8 := jsUint8Array.New(len(decoded))
-		js.CopyBytesToJS(u8, decoded)
-		jsFS.Get("files_").Call("set", path, map[string]interface{}{
-			"content": u8,
-		})
-	}
-
-	return nil
 }
 
 func initWasm() error {
