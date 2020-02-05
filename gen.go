@@ -156,14 +156,6 @@ func replaceFiles(tmp string) error {
 			path:  filepath.Join("cmd", "go", "internal", "lockedfile", "internal", "filelock"),
 			clear: true,
 		},
-		{
-			path:  filepath.Join("cmd", "go"),
-			clear: false,
-		},
-		{
-			path:  filepath.Join("cmd", "go", "internal", "asobiba"),
-			clear: false,
-		},
 	} {
 		path := r.path
 		if r.clear {

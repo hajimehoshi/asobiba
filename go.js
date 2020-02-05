@@ -9,6 +9,8 @@ function enosys(name) {
     return err;
 }
 
+const goversion = '1.14beta1';
+
 class Storage {
     constructor() {
         this.storage_ = new Map();
@@ -118,8 +120,11 @@ class FS {
     }
 
     static tools() {
-        // Some tools like buildid are missing, but the file entries are required.
-        return ['asm', 'buildid', 'compile', 'link', 'pack'];
+        return ['asm', 'compile', 'link'];
+    }
+
+    static dummyTools_() {
+        return ['buildid', 'pack'];
     }
 
     static absPath(cwd, path) {
@@ -173,12 +178,6 @@ class FS {
     }
 
     static async decompress_(buf) {
-        if (!FS.pakoImported_) {
-            const geval = eval;
-            geval(await (await fetch('./pako_inflate.min.js')).text());
-            FS.pakoImported_ = true;
-        }
-
         let decompressed = pako.ungzip(buf);
         // A fetched response might be decompressed twice on Firefox.
         // See https://bugzilla.mozilla.org/show_bug.cgi?id=610679
@@ -199,7 +198,8 @@ class FS {
 
     
     async initializeFiles() {
-        // Initilizing files also happens at cmd/go/internal/asobiba.
+        const geval = eval;
+        geval(await (await fetch('./pako_inflate.min.js')).text());
 
         await this.files_.set('/', {
             directory: true,
@@ -226,18 +226,43 @@ class FS {
         });
 
         // Standard lib files
-        const buf = await (await fetch('./stdfiles.json.gz')).arrayBuffer();
-        const stdfiles = JSON.parse(new TextDecoder('utf-8').decode(await FS.decompress_(buf)));
-        for (const path in stdfiles) {
-            const fullpath = '/go/' + path;
-            const idx = fullpath.lastIndexOf('/');
-            await this.mkdirp_(fullpath.substring(0, idx));
-            await this.files_.set(fullpath, {
-                content: new TextEncoder('utf-8').encode(stdfiles[path]),
+        const promises = [];
+        promises.push(new Promise(async (resolve, reject) => {
+            const buf = await (await fetch('./stdfiles.json.gz')).arrayBuffer();
+            const stdfiles = JSON.parse(new TextDecoder('utf-8').decode(await FS.decompress_(buf)));
+            for (const path in stdfiles) {
+                const fullpath = '/go/' + path;
+                const idx = fullpath.lastIndexOf('/');
+                await this.mkdirp_(fullpath.substring(0, idx));
+                await this.files_.set(fullpath, {
+                    content: new TextEncoder('utf-8').encode(stdfiles[path]),
+                });
+            }
+            resolve();
+        }));
+
+        await this.mkdirp_('/go/pkg/tool/js_wasm');
+
+        // Binary files
+        for (const command of FS.tools()) {
+            promises.push(new Promise(async (resolve, reject) => {
+                const buf = await (await fetch(`./bin/${command}${goversion}.wasm.gz`)).arrayBuffer();
+                const bin = await FS.decompress_(buf);
+                this.files_.set(`/go/pkg/tool/js_wasm/` + command, {
+                    content: new Uint8Array(bin),
+                });
+                resolve();
+            }));
+        }
+
+        // Dummy files for tools
+        for (const tool of FS.dummyTools_()) {
+            await this.files_.set(goroot + `/pkg/tool/js_wasm/${tool}`, {
+                content: new Uint8Array(0),
             });
         }
 
-        // TODO: Load binaries here
+        await Promise.all(promises);
 
         // Generate cache files.
         // TODO: Add pre-built cache.
@@ -260,22 +285,6 @@ class FS {
             content: new TextEncoder('utf-8').encode('Hi.\n'),
         });
         // /var/cache/trim.txt is checked after processing Go building. No need to prepare this.
-
-        // Dummy files for tools
-        await this.files_.set(goroot + '/pkg', {
-            directory: true,
-        });
-        await this.files_.set(goroot + '/pkg/tool', {
-            directory: true,
-        });
-        await this.files_.set(goroot + '/pkg/tool/js_wasm', {
-            directory: true,
-        });
-        for (const tool of FS.tools()) {
-            await this.files_.set(goroot + `/pkg/tool/js_wasm/${tool}`, {
-                content: new Uint8Array(0),
-            });
-        }
     }
 
     get constants() {
@@ -834,7 +843,6 @@ class GoInternal {
             };
         }
 
-        const goversion = '1.14beta1';
         const commandName = command.split('/').pop();
         let wasmPath = '';
         let wasmContent = null;
