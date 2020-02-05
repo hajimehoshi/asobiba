@@ -362,7 +362,7 @@ func genBins(tmp string) error {
 	for _, b := range []bin{
 		{
 			name:     "go",
-			compress: false,
+			compress: true,
 		},
 		{
 			name:     "asm",

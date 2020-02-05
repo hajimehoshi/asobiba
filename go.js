@@ -120,7 +120,7 @@ class FS {
     }
 
     static tools() {
-        return ['asm', 'compile', 'link'];
+        return ['go', 'asm', 'compile', 'link'];
     }
 
     static dummyTools_() {
@@ -248,7 +248,13 @@ class FS {
             promises.push(new Promise(async (resolve, reject) => {
                 const buf = await (await fetch(`./bin/${command}${goversion}.wasm.gz`)).arrayBuffer();
                 const bin = await FS.decompress_(buf);
-                this.files_.set(`/go/pkg/tool/js_wasm/` + command, {
+                let path = null;
+                if (command === 'go') {
+                    path = `/go/bin/` + command;
+                } else {
+                    path = `/go/pkg/tool/js_wasm/` + command;
+                }
+                this.files_.set(path, {
                     content: new Uint8Array(bin),
                 });
                 resolve();
@@ -844,10 +850,9 @@ class GoInternal {
         }
 
         const commandName = command.split('/').pop();
-        let wasmPath = '';
         let wasmContent = null;
         if (command === 'go') {
-            wasmPath = `./bin/go${goversion}.wasm`;
+            wasmContent = (await globalThis.fs.files_.get(`/go/bin/${command}`)).content;
         } else if (command === `/go/pkg/tool/js_wasm/${commandName}` && FS.tools().includes(commandName)) {
             wasmContent = (await globalThis.fs.files_.get(`/go/pkg/tool/js_wasm/${commandName}`)).content;
         } else {
@@ -860,11 +865,7 @@ class GoInternal {
             }
         }
 
-        if (wasmPath) {
-            wasmModule = await compileStreaming(fetch(wasmPath));
-        } else {
-            wasmModule = await WebAssembly.compile(wasmContent);
-        }
+        wasmModule = await WebAssembly.compile(wasmContent);
         this.wasmModules_.set(command, wasmModule);
         return wasmModule;
     }
