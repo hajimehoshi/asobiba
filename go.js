@@ -187,6 +187,41 @@ class FS {
         return decompressed;
     }
 
+    static parseCbor_(buf) {
+        let idx = 0;
+        if (buf[idx] !== 0b10111010) {
+            throw 'expected map 32bit but not';
+        }
+        idx++;
+        const mapLength = buf[idx] << 24 | buf[idx+1] << 16 | buf[idx+2] << 8 | buf[idx+3];
+        idx += 4;
+
+        const result = {};
+        for (let i = 0; i < mapLength; i++) {
+            if (buf[idx] !== 0b01111010) {
+                throw 'expected text string 32bit but not';
+            }
+            idx++;
+            const strLength = buf[idx] << 24 | buf[idx+1] << 16 | buf[idx+2] << 8 | buf[idx+3];
+            idx += 4;
+            const key = new TextDecoder('utf-8').decode(new Uint8Array(buf.buffer, buf.byteOffset + idx, strLength));
+            idx += strLength;
+
+            if (buf[idx] !== 0b01011010) {
+                throw 'expected byte string 32bit but not';
+            }
+            idx++;
+            const byteLength = buf[idx] << 24 | buf[idx+1] << 16 | buf[idx+2] << 8 | buf[idx+3];
+            idx += 4;
+            const value = new Uint8Array(buf.buffer, buf.byteOffset + idx, byteLength);
+            idx += byteLength;
+
+            result[key] = value;
+        }
+
+        return result;
+    }
+
     constructor(ps) {
         // TODO: What about using localStorage except for /tmp?
         this.files_ = new Storage();
@@ -196,7 +231,6 @@ class FS {
         this.decoder_ = new TextDecoder('utf-8');
     }
 
-    
     async initializeFiles() {
         const geval = eval;
         geval(await (await fetch('./pako_inflate.min.js')).text());
@@ -228,14 +262,14 @@ class FS {
         // Standard lib files
         const promises = [];
         promises.push(new Promise(async (resolve, reject) => {
-            const buf = await (await fetch('./stdfiles.json.gz')).arrayBuffer();
-            const stdfiles = JSON.parse(new TextDecoder('utf-8').decode(await FS.decompress_(buf)));
+            const buf = await (await fetch('./stdfiles.cbor.gz')).arrayBuffer();
+            const stdfiles = FS.parseCbor_(await FS.decompress_(buf));
             for (const path in stdfiles) {
                 const fullpath = '/go/' + path;
                 const idx = fullpath.lastIndexOf('/');
                 await this.mkdirp_(fullpath.substring(0, idx));
                 await this.files_.set(fullpath, {
-                    content: new TextEncoder('utf-8').encode(stdfiles[path]),
+                    content: stdfiles[path],
                 });
             }
             resolve();
@@ -272,14 +306,14 @@ class FS {
         for (let i = 0; i < 16; i++) {
             const a = i.toString(16);
             promises.push(new Promise(async (resolve, reject) => {
-                const buf = await (await fetch(`./cache/${a}.json.gz`)).arrayBuffer();
-                const cache = JSON.parse(new TextDecoder('utf-8').decode(await FS.decompress_(buf)));
+                const buf = await (await fetch(`./cache/${a}.cbor.gz`)).arrayBuffer();
+                const cache = FS.parseCbor_(await FS.decompress_(buf));
                 for (const path in cache) {
                     const fullpath = '/var/cache/' + path;
                     const idx = fullpath.lastIndexOf('/');
                     await this.mkdirp_(fullpath.substring(0, idx));
                     await this.files_.set(fullpath, {
-                        content: Uint8Array.from(atob(cache[path]), c => c.charCodeAt(0)),
+                        content: cache[path],
                     });
                 }
                 resolve();

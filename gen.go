@@ -6,10 +6,7 @@
 package main
 
 import (
-	"bytes"
 	"compress/gzip"
-	"encoding/base64"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -49,7 +46,7 @@ func run() error {
 	if err := os.RemoveAll("wasm_exec.js"); err != nil {
 		return err
 	}
-	if err := os.RemoveAll("stdfiles.json.gz"); err != nil {
+	if err := os.RemoveAll("stdfiles.cbor.gz"); err != nil {
 		return err
 	}
 	if err := os.RemoveAll("cache"); err != nil {
@@ -74,10 +71,10 @@ func run() error {
 	if err := copyWasmExecJs(tmp); err != nil {
 		return err
 	}
-	if err := genStdfilesJson(tmp); err != nil {
+	if err := genStdfilesCbor(tmp); err != nil {
 		return err
 	}
-	if err := genCacheJsons(tmp); err != nil {
+	if err := genCacheCbors(tmp); err != nil {
 		return err
 	}
 	if err := replaceFiles(tmp); err != nil {
@@ -287,23 +284,51 @@ func stdfiles(tmp string) ([]string, error) {
 	return files, nil
 }
 
-func writeGzFile(contents map[string]string, name string) error {
+func writeCborGzFile(contents map[string][]byte, name string) error {
+	writeUint32 := func(w io.Writer, x uint32) (int, error) {
+		// Cbor's integers are represented in big endian.
+		return w.Write([]byte{byte(x >> 24), byte(x >> 16), byte(x >> 8), byte(x)})
+	}
+
 	f, err := os.Create(name)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(contents); err != nil {
-		return err
-	}
-
 	w := gzip.NewWriter(f)
 	defer w.Close()
-	if _, err := io.Copy(w, &buf); err != nil {
+
+	// Map with 32bit length
+	if _, err := w.Write([]byte{0b10111010}); err != nil {
 		return err
 	}
+	if _, err := writeUint32(w, uint32(len(contents))); err != nil {
+		return err
+	}
+	for k, v := range contents {
+		// Text string with 32bit length
+		if _, err := w.Write([]byte{0b01111010}); err != nil {
+			return err
+		}
+		if _, err := writeUint32(w, uint32(len(k))); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, k); err != nil {
+			return err
+		}
+		// Byte string with 32bit length
+		if _, err := w.Write([]byte{0b01011010}); err != nil {
+			return err
+		}
+		if _, err := writeUint32(w, uint32(len(v))); err != nil {
+			return err
+		}
+		if _, err := w.Write(v); err != nil {
+			return err
+		}
+	}
+
 	if err := w.Flush(); err != nil {
 		return err
 	}
@@ -311,8 +336,8 @@ func writeGzFile(contents map[string]string, name string) error {
 	return nil
 }
 
-func genStdfilesJson(tmp string) error {
-	fmt.Printf("Generating stdfiles.json.gz\n")
+func genStdfilesCbor(tmp string) error {
+	fmt.Printf("Generating stdfiles.cbor.gz\n")
 
 	// Add $GOROOT/src
 	fs, err := stdfiles(tmp)
@@ -323,13 +348,13 @@ func genStdfilesJson(tmp string) error {
 	if err != nil {
 		return err
 	}
-	contents := map[string]string{}
+	contents := map[string][]byte{}
 	for _, f := range fs {
 		c, err := ioutil.ReadFile(filepath.Join(gr, f))
 		if err != nil {
 			return err
 		}
-		contents[f] = string(c)
+		contents[f] = c
 	}
 
 	// Add $GOROOT/pkg/include
@@ -351,21 +376,21 @@ func genStdfilesJson(tmp string) error {
 			return err
 		}
 
-		contents[filepath.ToSlash(rel)] = string(c)
+		contents[filepath.ToSlash(rel)] = c
 		return nil
 	}); err != nil {
 		return err
 	}
 
-	if err := writeGzFile(contents, "stdfiles.json.gz"); err != nil {
+	if err := writeCborGzFile(contents, "stdfiles.cbor.gz"); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func genCacheJsons(tmp string) error {
-	fmt.Printf("Generating cache JSON files\n")
+func genCacheCbors(tmp string) error {
+	fmt.Printf("Generating cache Cbor files\n")
 
 	if err := os.MkdirAll("cache", 0755); err != nil {
 		return err
@@ -386,7 +411,7 @@ func genCacheJsons(tmp string) error {
 		return err
 	}
 
-	cache := map[byte]map[string]string{}
+	cache := map[byte]map[string][]byte{}
 	filepath.Walk(cachetmp, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -409,14 +434,14 @@ func genCacheJsons(tmp string) error {
 		}
 		r := rel[0]
 		if _, ok := cache[r]; !ok {
-			cache[r] = map[string]string{}
+			cache[r] = map[string][]byte{}
 		}
-		cache[r][filepath.ToSlash(rel)] = base64.StdEncoding.EncodeToString(c)
+		cache[r][filepath.ToSlash(rel)] = c
 		return nil
 	})
 
 	for r, c := range cache {
-		if err := writeGzFile(c, filepath.Join("cache", string(r)+".json.gz")); err != nil {
+		if err := writeCborGzFile(c, filepath.Join("cache", string(r)+".cbor.gz")); err != nil {
 			return err
 		}
 	}

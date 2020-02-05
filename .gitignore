@@ -1,5 +1,5 @@
 *~
 bin
 cache
-stdfiles.json.gz
+stdfiles.cbor.gz
 wasm_exec.js
