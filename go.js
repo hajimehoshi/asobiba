@@ -9,8 +9,6 @@ function enosys(name) {
     return err;
 }
 
-const goversion = '1.14beta1';
-
 class Storage {
     constructor() {
         this.storage_ = new Map();
@@ -276,6 +274,8 @@ class FS {
         }));
 
         await this.mkdirp_('/go/pkg/tool/js_wasm');
+
+        const goversion = (await(await fetch('./goversion.txt')).text()).trim();
 
         // Binary files
         for (const command of FS.tools()) {

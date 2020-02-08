@@ -18,6 +18,16 @@ import (
 	"strings"
 )
 
+var goversion string
+
+func init() {
+	v, err := ioutil.ReadFile("goversion.txt")
+	if err != nil {
+		panic(err)
+	}
+	goversion = strings.TrimSpace(string(v))
+}
+
 var (
 	flagTar   = flag.String("tar", "", "tar file of Go binary")
 	flagDir   = flag.String("dir", "", "directory of Go binary")
@@ -86,10 +96,6 @@ func run() error {
 	return nil
 }
 
-const (
-	goversion = "1.14beta1"
-)
-
 func prepareGo(tmp string) error {
 	if *flagDir != "" {
 		fmt.Printf("Copying %s\n", *flagDir)
@@ -136,7 +142,11 @@ func prepareGo(tmp string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Checking go version: %s\n", strings.TrimSpace(string(out)))
+	outs := strings.TrimSpace(string(out))
+	if !strings.HasPrefix(outs, fmt.Sprintf("go version go%s ", goversion)) {
+		return fmt.Errorf("Go version must be %s but not", goversion)
+	}
+	fmt.Printf("Checking go version: %s\n", outs)
 
 	return nil
 }
