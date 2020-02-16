@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import './wasm_exec.js';
+import './pako.min.js';
 
 class Printer {
     constructor() {
@@ -155,12 +156,6 @@ class GoCompiler {
 window.addEventListener('DOMContentLoaded', async (e) => {
     updateCSS();
 
-    const lzStringPromise = new Promise(async (resolve, reject) => {
-        const geval = eval;
-        geval(await (await fetch('./lz-string.min.js')).text());
-        resolve(LZString);
-    });
-
     const defaultSource = `package main
 
 import "fmt"
@@ -175,8 +170,8 @@ func main() {
     if (search.has('src')) {
         try {
             const compressed = search.get('src');
-            const src = (await lzStringPromise).decompressFromBase64(compressed);
-            textArea.value = src;
+            const src = pako.inflate(atob(compressed));
+            textArea.value = new TextDecoder('utf-8').decode(src);
         } catch (e) {
             // Incorrect input.
             console.error(e);
@@ -248,10 +243,11 @@ func main() {
     shareButton.addEventListener('click', async () => {
         const textArea = document.getElementById('source');
         const src = textArea.value;
-        const compressed = (await lzStringPromise).compressToBase64(src);
+        const compressed = pako.deflate(src);
+        const b64 = btoa(String.fromCharCode(...compressed));
         const url = new URL(window.location);
         const search = url.searchParams;
-        search.set('src', compressed);
+        search.set('src', b64);
         url.search = search.toString();
         history.replaceState(undefined, undefined, url);
     });

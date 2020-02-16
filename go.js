@@ -231,7 +231,7 @@ class FS {
 
     async initializeFiles() {
         const geval = eval;
-        geval(await (await fetch('./pako_inflate.min.js')).text());
+        geval(await (await fetch('./pako.min.js')).text());
 
         await this.files_.set('/', {
             directory: true,

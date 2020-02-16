@@ -1,4 +1,5 @@
 *~
+.DS_Store
 bin
 cache
 stdfiles.cbor.gz
