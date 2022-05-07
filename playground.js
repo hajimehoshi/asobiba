@@ -3,8 +3,8 @@
 
 import './wasm_exec.js';
 import './pako.min.js';
-import './codemirror.js';
-import './codemirror_mode_go.js';
+import './codemirror.min.js';
+import './codemirror_mode_go.min.js';
 
 class Printer {
     constructor() {
