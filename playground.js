@@ -98,20 +98,20 @@ class GoCompiler {
             const defaultGoMod = new TextEncoder().encode(`module asobiba`);
 
             const worker = new Worker('./go.js');
-            worker.addEventListener('message', this.onMessageFromWorker_(worker, resolve, reject));
+            worker.addEventListener('message', this.onMessageFromWorker_(worker, source, resolve, reject));
             worker.addEventListener('error', reject);
             worker.postMessage({
-                command: ['go', 'build', '-x', '-o', 'main.wasm', 'main.go'],
+                command: ['go', 'mod', 'tidy'],
                 files: {
                     'main.go': source,
                     'go.mod':  defaultGoMod,
                 },
-                outputFiles: ['main.wasm'],
-            });
+                outputFiles: ['go.mod'],
+            })
         })
     }
 
-    onMessageFromWorker_(worker, resolve, reject) {
+    onMessageFromWorker_(worker, source, resolve, reject) {
         return (e) => {
             let data = e.data;
             switch (data.type) {
@@ -124,18 +124,30 @@ class GoCompiler {
             case 'info':
                 this.printer_.write(data.body, 'info', true);
                 break;
-            case 'outputFile':
-                if (e.data.name === 'main.wasm') {
-                    this.result_ = e.data.body;
-                }
-                break;
-            case 'exit':
-                worker.terminate();
+            case 'commandDone':
                 const code = e.data.code;
-                if (code === 0) {
-                    resolve(this.result_);
-                } else {
+                if (code) {
+                    worker.terminate();
                     reject(code);
+                    break;
+                }
+                for (let filename in e.data.outputFiles) {
+                    switch (filename) {
+                    case 'main.wasm':
+                        resolve(e.data.outputFiles[filename]);
+                        break;
+                    case 'go.mod':
+                        const goMod = e.data.outputFiles[filename];
+                        worker.postMessage({
+                            command: ['go', 'build', '-x', '-o', 'main.wasm', 'main.go'],
+                            files: {
+                                'main.go': source,
+                                'go.mod':  goMod,
+                            },
+                            outputFiles: ['main.wasm'],
+                        });
+                        break;
+                    }
                 }
                 break;
             case 'download':

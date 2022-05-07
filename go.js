@@ -844,7 +844,7 @@ class GoInternal {
     }
 
     async initializeGlobalVariablesIfNeeded() {
-        if (this.initialized_) {
+        if (globalThis.initialized_) {
             return;
         }
         const process = new Process();
@@ -853,7 +853,7 @@ class GoInternal {
         globalThis.fs = fs;
         globalThis.process = process;
 
-        this.initialized_ = true;
+        globalThis.initialized_ = true;
     }
 
     writeToStdout(buf) {
@@ -964,11 +964,6 @@ class GoInternal {
 }
 
 addEventListener('message', async (e) => {
-    if (globalThis.started_) {
-        throw new Error('go.js can be called only once');
-    }
-    globalThis.started_ = true;
-
     // JavaScript module in a dedicated worker is not supported in Chrome 79.
     // Fetch and eval the script instead.
 
@@ -1010,6 +1005,7 @@ addEventListener('message', async (e) => {
 
     let code = 0;
     const dir = '/root';
+    const outputFiles = {};
     try {
         const cmd = e.data.command[0];
         switch (cmd) {
@@ -1027,18 +1023,14 @@ addEventListener('message', async (e) => {
                 if (!file) {
                     continue;
                 }
-                const content = file.content;
-                postMessage({
-                    type: 'outputFile',
-                    name: filename,
-                    body: content,
-                }, content.buffer);
+                outputFiles[filename] = file.content;
             }
         }
     } finally {
         postMessage({
-            type: 'exit',
+            type: 'commandDone',
+            outputFiles: outputFiles,
             code: code,
-        });
+        }, Object.values(outputFiles).map(content => content.buffer));
     }
 });
