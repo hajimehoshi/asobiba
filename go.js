@@ -927,8 +927,6 @@ class GoInternal {
             GOROOT:      '/go',
             GOCACHE:     '/var/cache',
             GO111MODULE: 'on',
-            GOPROXY:     'cache.greedo.xeserv.us', // The default GOPROXY doesn't work due to CORS.
-            GOSUMDB:     'off',                    // Ditto.
         };
 
         const origStdin = this.stdin_;
