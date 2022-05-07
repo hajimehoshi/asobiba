@@ -3,6 +3,8 @@
 
 import './wasm_exec.js';
 import './pako.min.js';
+import './codemirror.min.js';
+import './codemirror_mode_go.min.js';
 
 class Printer {
     constructor() {
@@ -168,7 +170,7 @@ class GoCompiler {
 window.addEventListener('DOMContentLoaded', async (e) => {
     updateCSS();
 
-    const defaultSource = `package main
+    let source = `package main
 
 import "fmt"
 
@@ -176,22 +178,26 @@ func main() {
   fmt.Println("Hello, World!")
 }`;
 
-    const textArea = document.getElementById('source');
     const url = new URL(window.location);
     const search = url.searchParams;
     if (search.has('src')) {
         try {
             const compressed = search.get('src');
             const src = pako.inflate(atob(compressed));
-            textArea.value = new TextDecoder('utf-8').decode(src);
+            source = new TextDecoder('utf-8').decode(src);
         } catch (e) {
             // Incorrect input.
             console.error(e);
         }
     }
-    if (!textArea.value) {
-        textArea.value = defaultSource;
-    }
+    const editor = CodeMirror(document.getElementById('source'), {
+        mode: 'go',
+        lineNumbers: true,
+        lineWrapping: true,
+        autofocus: true,
+        styleActiveLine: true,
+        value: source,
+    });
 
     const runButton = document.getElementById('run');
     runButton.addEventListener('click', async () => {
@@ -200,8 +206,7 @@ func main() {
 
         // TODO: Split the source into multiple files. See https://play.golang.org/p/KLZR7NlVZNX
         try {
-            const textArea = document.getElementById('source');
-            const src = textArea.value;
+            const src = editor.getValue();
             const data = new TextEncoder().encode(src);
             const gc = new GoCompiler(printer);
             let wasm = null;
@@ -253,8 +258,7 @@ func main() {
 
     const shareButton = document.getElementById('share');
     shareButton.addEventListener('click', async () => {
-        const textArea = document.getElementById('source');
-        const src = textArea.value;
+        const src = editor.getValue();
         const compressed = pako.deflate(src);
         const b64 = btoa(String.fromCharCode(...compressed));
         const url = new URL(window.location);

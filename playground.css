@@ -10,9 +10,6 @@ h1 {
     display: inline;
     font-weight: normal;
 }
-textarea {
-    font-family: monospace;
-}
 pre {
     white-space: pre-wrap;
     word-break: break-all;
@@ -57,7 +54,7 @@ main {
 
     display: flex;
 }
-main > textarea {
+#source {
     flex-grow: 0;
     width: 50%;
 }
@@ -79,4 +76,11 @@ footer {
     height: 100%;
 
     position: absolute;
+}
+
+.CodeMirror {
+  height: 100%;
+  width: 100%;
+  border: solid 1px #aaa;
+  border-radius: 4px;
 }
