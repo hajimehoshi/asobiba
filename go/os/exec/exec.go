@@ -20,9 +20,11 @@ import (
 	"strings"
 	"syscall"
 	"syscall/js"
+	"time"
 )
 
 var ErrNotFound = errors.New("executable file not found in $PATH")
+var ErrWaitDelay = errors.New("exec: WaitDelay expired before I/O complete")
 
 func LookPath(file string) (string, error) {
 	return "", &Error{file, ErrNotFound}
@@ -40,6 +42,8 @@ type Cmd struct {
 	SysProcAttr  *syscall.SysProcAttr
 	Process      *os.Process
 	ProcessState *os.ProcessState
+        Cancel func() error
+        WaitDelay time.Duration
 }
 
 func Command(name string, arg ...string) *Cmd {
@@ -169,6 +173,10 @@ func (c *Cmd) StdinPipe() (io.WriteCloser, error) {
 
 func (c *Cmd) StdoutPipe() (io.ReadCloser, error) {
 	panic("exec: (*Cmd).StdoutPipe is not implemented")
+}
+
+func (c *Cmd) Environ() []string {
+	return c.Env
 }
 
 func (c *Cmd) String() string {
