@@ -42,8 +42,8 @@ type Cmd struct {
 	SysProcAttr  *syscall.SysProcAttr
 	Process      *os.Process
 	ProcessState *os.ProcessState
-        Cancel func() error
-        WaitDelay time.Duration
+	Cancel       func() error
+	WaitDelay    time.Duration
 }
 
 func Command(name string, arg ...string) *Cmd {

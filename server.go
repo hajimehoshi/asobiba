@@ -1,7 +1,7 @@
 // Copyright 2020 Hajime Hoshi
 // SPDX-License-Identifier: Apache-2.0
 
-// +build ignore
+//go:build ignore
 
 package main
 
