@@ -27,6 +27,21 @@ var ErrNotFound = errors.New("executable file not found in $PATH")
 var ErrWaitDelay = errors.New("exec: WaitDelay expired before I/O complete")
 
 func LookPath(file string) (string, error) {
+	if strings.HasPrefix(file, "/") {
+		d, err := os.Stat(file)
+		if err != nil {
+			return "", &Error{file, err}
+		}
+		m := d.Mode()
+		if m.IsDir() {
+			return "", &Error{file, syscall.EISDIR}
+		}
+
+		// Permission bits are not available in current implementation,
+		// simply assume it is executable if it is asking for an absolute path.
+		return file, nil
+	}
+
 	return "", &Error{file, ErrNotFound}
 }
 
