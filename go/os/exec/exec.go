@@ -37,7 +37,7 @@ func LookPath(file string) (string, error) {
 			return "", &Error{file, syscall.EISDIR}
 		}
 
-		// permission bits are not available in current implementation,
+		// Permission bits are not available in current implementation,
 		// simply assume it is executable if it is asking for an absolute path.
 		return file, nil
 	}
